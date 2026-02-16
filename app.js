@@ -221,6 +221,72 @@ function getFossilIconImgHtmlByName(name){
   return `<img class="fossilIcon" src="${url}" alt="" loading="lazy" decoding="async">`;
 }
 
+function getArtAssetUrl(fileName){
+  const key = String(fileName ?? "").trim();
+  if (!key) return "";
+  return `./assets/art/${encodeURIComponent(key)}`;
+}
+
+function getArtSampleAssetUrlByName(name){
+  if (!name) return "";
+  const fileName = `${name}【サンプル】.png`;
+  return `./assets/art_sample/${encodeURIComponent(fileName)}`;
+}
+
+function getArtIconUrlByItem(it){
+  if (!it) return "";
+  // List icon uses the provided sample images (美術品_サンプル)
+  return getArtSampleAssetUrlByName(it.name);
+}
+
+function getArtIconImgHtml(it){
+  const url = getArtIconUrlByItem(it);
+  if (!url) return "";
+  return `<img class="artIcon" src="${url}" alt="" loading="lazy" decoding="async">`;
+}
+
+function getArtDetailCompareHtml(it){
+  if (!it) return "";
+
+  const descHtml = (t)=> (t && String(t).trim())
+    ? `<div class="artDesc">${escapeHtml(String(t).trim())}</div>`
+    : "";
+
+  if (it.variant === "only"){
+    const url = getArtAssetUrl(it.img_only);
+    const d = (it.desc_only && String(it.desc_only).trim()) ? it.desc_only : "偽物が存在しません";
+    return `
+      <div class="artCompare one">
+        <div class="artCol">
+          <div class="artTitle">本物のみ</div>
+          <img class="artCompareImg" src="${url}" alt="" loading="lazy" decoding="async">
+          ${descHtml(d)}
+        </div>
+      </div>
+    `;
+  }
+
+  const urlReal = getArtAssetUrl(it.img_real);
+  const urlFake = getArtAssetUrl(it.img_fake);
+
+  return `
+    <div class="artCompare">
+      <div class="artCol">
+        <div class="artTitle">本物</div>
+        <img class="artCompareImg" src="${urlReal}" alt="" loading="lazy" decoding="async">
+        ${descHtml(it.desc_real)}
+      </div>
+      <div class="artCol">
+        <div class="artTitle">偽物</div>
+        <img class="artCompareImg" src="${urlFake}" alt="" loading="lazy" decoding="async">
+        ${descHtml(it.desc_fake)}
+      </div>
+    </div>
+  `;
+}
+
+
+
 function getFishShadowLabelByNo(no){
   const n = Number(no);
   return FISH_SHADOW_BY_NO[n] || "";
@@ -247,7 +313,8 @@ const defaultState = {
     fish: { caught: "all", place: "", shadow: "", name: "", excludeAllYear: false },
     bugs: { caught: "all", place: "", name: "", excludeAllYear: false },
     sea:  { caught: "all", name: "", excludeAllYear: false },
-    fossil: { caught: "all", name: "" }
+    fossil: { caught: "all", name: "" },
+    art: { caught: "all", kind: "", name: "" }
   },
   marks: {},
   tab: "fish"
@@ -295,7 +362,7 @@ function migrateIfNeeded(obj){
     else merged.marks[k] = { caught: false };
   }
 
-  ["fish","bugs","sea","fossil"].forEach(v=>{
+  ["fish","bugs","sea","fossil","art"].forEach(v=>{
     merged.filters[v] = { ...deepClone(defaultState.filters[v]), ...(merged.filters[v] || {}) };
   });
 
@@ -467,6 +534,10 @@ function applyFilters(kind, items){
     if (kind === "fish" && f.shadow){
       const sh = getFishShadowLabelByNo(it.no);
       if (sh !== String(f.shadow)) return false;
+    }
+
+    if (kind === "art" && f.kind){
+      if (String(it.kind||"") !== String(f.kind)) return false;
     }
 
     if (nameQ && !normalizeText(it.name).includes(nameQ)) return false;
@@ -1350,11 +1421,289 @@ function renderFossilList(items){
 
 }
 
+
+function renderArtList(items){
+  ensureCompactStyles();
+
+  const kind = "art";
+  const f = state.filters[kind] || { caught: "all", kind: "", name: "" };
+
+  let filtered = applyFilters(kind, items);
+
+  // 表示順：名前順
+  filtered.sort((a,b)=> String(a.name||"").localeCompare(String(b.name||""), "ja"));
+
+  let html = `
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div class="small">美術品</div>
+        <div class="badge">${filtered.length} 件</div>
+      </div>
+
+      <div class="filtersGrid">
+        <div class="fitem nameItem">
+          <div class="label">名前（部分一致）</div>
+          <div class="inputWithClear">
+            <input type="text" id="${kind}-f-name" placeholder="例：うつくしい" value="${escapeHtml(f.name || "")}" autocomplete="off">
+            <button type="button" id="${kind}-f-name-clear" class="clearBtn" aria-label="clear" ${f.name ? "" : "disabled"}>×</button>
+          </div>
+        </div>
+
+        <div class="fitem">
+          <div class="label">種類</div>
+          <select id="${kind}-f-kind" class="select">
+            <option value="" ${!f.kind ? "selected" : ""}>指定なし</option>
+            <option value="名画" ${f.kind==="名画" ? "selected" : ""}>名画</option>
+            <option value="彫刻" ${f.kind==="彫刻" ? "selected" : ""}>彫刻</option>
+          </select>
+        </div>
+
+        <div class="fitem spanAll bulkSection">
+          <div class="label"></div>
+          <div class="bulkBtns">
+            <button type="button" id="${kind}-checkAllBtn" class="btn">すべてチェック</button>
+            <button type="button" id="${kind}-uncheckAllBtn" class="btn">すべて解除</button>
+          </div>
+        </div>
+
+        <div class="fitem spanAll">
+          <div class="row checksRow" style="align-items:center;">
+            <label class="row chkCaught">
+              <input type="checkbox" id="${kind}-q-caughtOnly" ${f.caught==="caught"?"checked":""}/>
+              <span class="label">チェック済</span>
+            </label>
+
+            <label class="row chkUncaught">
+              <input type="checkbox" id="${kind}-q-uncaughtOnly" ${f.caught==="uncaught"?"checked":""}/>
+              <span class="label">未チェック</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- ===== Mobile: compact list ===== -->
+      <div class="cList">
+  `;
+
+  for (const it of filtered){
+    const mk = state.marks[it.id] || {caught:false};
+    const iconHtml = getArtIconImgHtml(it);
+    const detailHtml = getArtDetailCompareHtml(it);
+
+    html += `
+      <div class="cRow">
+        <div class="cHead" data-act="toggleArt" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
+          <label class="cChk" aria-label="チェック">
+            <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
+          </label>
+
+          <div class="cIconBig">
+            ${iconHtml}
+          </div>
+
+          <div class="cNameLine">
+            <div class="cNameText">${escapeHtml(it.name)}</div>
+          </div>
+        </div>
+
+        <div class="cDetail" data-detail="${it.id}" hidden>
+          ${detailHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
+      </div>
+
+      <!-- ===== Desktop: table ===== -->
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:72px;">済</th>
+              <th>名前</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  for (const it of filtered){
+    const mk = state.marks[it.id] || {caught:false};
+    const iconHtml = getArtIconImgHtml(it);
+    const detailHtml = getArtDetailCompareHtml(it);
+
+    html += `
+      <tr class="artTr" data-act="toggleArtDesk" data-id="${it.id}" aria-expanded="false">
+        <td data-label="済"><input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}></td>
+        <td class="td-name" data-label="名前">
+          <div class="nameRow">
+            ${iconHtml}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+          </div>
+        </td>
+      </tr>
+      <tr class="detailRow" data-detail-desk="${it.id}" hidden>
+        <td colspan="2" class="detailCell">
+          ${detailHtml}
+        </td>
+      </tr>
+    `;
+  }
+
+  html += `
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  const viewEl = document.querySelector(`#view-${kind}`);
+  viewEl.innerHTML = html;
+
+  const rerender = ()=>{
+    saveState();
+    render();
+  };
+
+  // ---- 全件チェック／解除（表示中のみ） ----
+  (viewEl.querySelector(`#${kind}-checkAllBtn`) || {addEventListener:()=>{}}).addEventListener("click", ()=>{
+    for (const it of filtered) state.marks[it.id] = { caught: true };
+    rerender();
+  });
+  (viewEl.querySelector(`#${kind}-uncheckAllBtn`) || {addEventListener:()=>{}}).addEventListener("click", ()=>{
+    for (const it of filtered) state.marks[it.id] = { caught: false };
+    rerender();
+  });
+
+  // ★クイック絞り込み：チェック済／未チェック
+  (viewEl.querySelector(`#${kind}-q-caughtOnly`) || {addEventListener:()=>{}}).addEventListener("change", (e)=>{
+    if (e.target.checked) state.filters[kind].caught = "caught";
+    else state.filters[kind].caught = "all";
+    rerender();
+  });
+  (viewEl.querySelector(`#${kind}-q-uncaughtOnly`) || {addEventListener:()=>{}}).addEventListener("change", (e)=>{
+    if (e.target.checked) state.filters[kind].caught = "uncaught";
+    else state.filters[kind].caught = "all";
+    rerender();
+  });
+
+  // 種類（指定なし/名画/彫刻）
+  const kindSel = viewEl.querySelector(`#${kind}-f-kind`);
+  if (kindSel){
+    kindSel.addEventListener("change", ()=>{
+      state.filters[kind].kind = kindSel.value;
+      rerender();
+    });
+  }
+
+  // Filters（debounce対応：IME考慮）
+  const rerenderDebounced = (() => {
+    if (!window.__acnhDebounce) window.__acnhDebounce = { t: null };
+    if (!window.__acnhIME) window.__acnhIME = { composing: false };
+    const tick = () => {
+      if (window.__acnhIME && window.__acnhIME.composing) {
+        window.__acnhDebounce.t = setTimeout(tick, 200);
+        return;
+      }
+      rerender();
+    };
+    return () => {
+      clearTimeout(window.__acnhDebounce.t);
+      window.__acnhDebounce.t = setTimeout(tick, 200);
+    };
+  })();
+
+  const nameInput = viewEl.querySelector(`#${kind}-f-name`);
+  if (nameInput){
+    nameInput.addEventListener("compositionstart", ()=>{
+      if (!window.__acnhIME) window.__acnhIME = { composing: false };
+      window.__acnhIME.composing = true;
+      if (window.__acnhDebounce) clearTimeout(window.__acnhDebounce.t);
+    });
+    nameInput.addEventListener("compositionend", ()=>{
+      if (!window.__acnhIME) window.__acnhIME = { composing: false };
+      window.__acnhIME.composing = false;
+      state.filters[kind].name = nameInput.value;
+      const clearBtn = viewEl.querySelector(`#${kind}-f-name-clear`);
+      if (clearBtn) clearBtn.disabled = !nameInput.value;
+      rerender();
+    });
+    nameInput.addEventListener("input", ()=>{
+      state.filters[kind].name = nameInput.value;
+      const clearBtn = viewEl.querySelector(`#${kind}-f-name-clear`);
+      if (clearBtn) clearBtn.disabled = !nameInput.value;
+      rerenderDebounced();
+    });
+  }
+
+  const clearBtn = viewEl.querySelector(`#${kind}-f-name-clear`);
+  if (clearBtn && nameInput){
+    clearBtn.addEventListener("click", ()=>{
+      nameInput.value = "";
+      state.filters[kind].name = "";
+      clearBtn.disabled = true;
+      rerender();
+      nameInput.focus();
+    });
+  }
+
+  // チェック（済）
+  viewEl.querySelectorAll(`input[data-act="caught"][data-id]`).forEach(el=>{
+    el.addEventListener("change", (e)=>{
+      const id = e.target.getAttribute("data-id");
+      state.marks[id] = { caught: e.target.checked };
+      rerender();
+    });
+  });
+
+  // Mobile: detail toggle（本物/偽物画像表示）
+  if (!viewEl.__acnhToggleBoundArt) {
+    viewEl.__acnhToggleBoundArt = true;
+
+    viewEl.addEventListener("click", (e)=>{
+      // チェック操作では詳細を開閉しない
+      if (e.target && (e.target.matches("input[type=\"checkbox\"]") || (e.target.closest && e.target.closest(".cChk")))) return;
+
+      const trg = e.target.closest && e.target.closest(`[data-act="toggleArt"]`);
+      if (trg){
+        const id = trg.getAttribute("data-id");
+        const detail = viewEl.querySelector(`[data-detail="${id}"]`);
+        if (detail){
+          detail.hidden = !detail.hidden;
+          trg.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
+        }
+        return;
+      }
+
+      const tr = e.target.closest && e.target.closest(`tr[data-act="toggleArtDesk"]`);
+      if (!tr) return;
+
+      const id = tr.getAttribute("data-id");
+      const detail = viewEl.querySelector(`tr[data-detail-desk="${id}"]`);
+      if (!detail) return;
+
+      detail.hidden = !detail.hidden;
+      tr.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
+    });
+
+    // キーボード操作（Enter / Space）でも開閉（mobile head）
+    viewEl.addEventListener("keydown", (e)=>{
+      const head = e.target && e.target.closest && e.target.closest(`.cHead[data-act="toggleArt"]`);
+      if (!head) return;
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      head.click();
+    });
+  }
+}
+
 function setView(view){
   document.querySelectorAll(".tab").forEach(b=>{
     b.classList.toggle("active", b.dataset.view === view);
   });
-  ["fish","bugs","sea","fossil"].forEach(v=>{
+  ["fish","bugs","sea","fossil","art"].forEach(v=>{
     document.querySelector(`#view-${v}`).classList.toggle("hidden", v !== view);
   });
   state.currentView = view;
@@ -1363,15 +1712,16 @@ function setView(view){
 }
 
 let state = loadState();
-let cache = { fish:null, bugs:null, sea:null, fossil:null };
+let cache = { fish:null, bugs:null, sea:null, fossil:null, art:null };
 
 async function ensureLoaded(){
   if (!cache.fish) cache.fish = await loadData("fish");
   if (!cache.bugs) cache.bugs = await loadData("bugs");
   if (!cache.sea)  cache.sea  = await loadData("sea");
   if (!cache.fossil) cache.fossil = await loadData("fossil");
+  if (!cache.art) cache.art = await loadData("art");
 
-  ensureInitialMarks([...cache.fish, ...cache.bugs, ...cache.sea, ...cache.fossil]);
+  ensureInitialMarks([...cache.fish, ...cache.bugs, ...cache.sea, ...cache.fossil, ...cache.art]);
 }
 
 async function render(){
@@ -1386,6 +1736,7 @@ async function render(){
     await ensureLoaded();
     const view = state.currentView || "fish";
     if (view === "fossil") renderFossilList(cache.fossil);
+    else if (view === "art") renderArtList(cache.art);
     else renderList(view, cache[view]);
     status("");
   } catch(e){

@@ -1,0 +1,690 @@
+[
+  {
+    "id": "art-1",
+    "category": "art",
+    "name": "アカデミックなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "アカデミックなめいが【本物】.png",
+    "img_fake": "アカデミックなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "アザがない",
+    "desc_fake": "右上にアザがある",
+    "desc_only": ""
+  },
+  {
+    "id": "art-2",
+    "category": "art",
+    "name": "あらぶるめいがのひだり",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "あらぶるめいがのひだり【本物】.png",
+    "img_fake": "あらぶるめいがのひだり【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "雷神の色が白い",
+    "desc_fake": "雷神の色が緑色",
+    "desc_only": ""
+  },
+  {
+    "id": "art-3",
+    "category": "art",
+    "name": "あらぶるめいがのみぎ",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "あらぶるめいがのみぎ【本物】.png",
+    "img_fake": "あらぶるめいがのみぎ【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "風神の色が緑色",
+    "desc_fake": "風神の色が白い",
+    "desc_only": ""
+  },
+  {
+    "id": "art-4",
+    "category": "art",
+    "name": "いいかんじのめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "いいかんじのめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-5",
+    "category": "art",
+    "name": "いいめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "いいめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-6",
+    "category": "art",
+    "name": "いきなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "いきなめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-7",
+    "category": "art",
+    "name": "いさましいめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "いさましいめいが【本物】.png",
+    "img_fake": "いさましいめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "前髪が不揃い",
+    "desc_fake": "前髪が揃っている",
+    "desc_only": ""
+  },
+  {
+    "id": "art-8",
+    "category": "art",
+    "name": "いなせなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "いなせなめいが【本物】.png",
+    "img_fake": "いなせなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "眉毛がつり上がっている",
+    "desc_fake": "眉毛が八の字",
+    "desc_only": ""
+  },
+  {
+    "id": "art-9",
+    "category": "art",
+    "name": "おごそかなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "おごそかなめいが【本物】.png",
+    "img_fake": "おごそかなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "奥の男性の手の位置が低い",
+    "desc_fake": "奥の男性の手の位置が高い",
+    "desc_only": ""
+  },
+  {
+    "id": "art-10",
+    "category": "art",
+    "name": "おだやかなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "おだやかなめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-11",
+    "category": "art",
+    "name": "おちついためいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "おちついためいが【本物】.png",
+    "img_fake": "おちついためいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "牛乳の量が少ない",
+    "desc_fake": "牛乳の量が多い",
+    "desc_only": ""
+  },
+  {
+    "id": "art-12",
+    "category": "art",
+    "name": "おもしろいめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "おもしろいめいが【本物】.png",
+    "img_fake": "おもしろいめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "胸に花がある",
+    "desc_fake": "胸に花がない",
+    "desc_only": ""
+  },
+  {
+    "id": "art-13",
+    "category": "art",
+    "name": "かちのあるめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "かちのあるめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-14",
+    "category": "art",
+    "name": "きれいなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "きれいなめいが【本物】.png",
+    "img_fake": "きれいなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "右側に木がある",
+    "desc_fake": "右側に木がない",
+    "desc_only": ""
+  },
+  {
+    "id": "art-15",
+    "category": "art",
+    "name": "しずみゆくめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "しずみゆくめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-16",
+    "category": "art",
+    "name": "しなやかなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "しなやかなめいが【本物】.png",
+    "img_fake": "しなやかなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "掛け軸の真ん中に女性の頭がある",
+    "desc_fake": "掛け軸の真ん中を超えるほど女性が大きい",
+    "desc_only": ""
+  },
+  {
+    "id": "art-17",
+    "category": "art",
+    "name": "すごいめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "すごいめいが【本物】.png",
+    "img_fake": "すごいめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "真ん中の黒い服の人が帽子を被っている",
+    "desc_fake": "真ん中の黒い服の人が帽子を被っていない",
+    "desc_only": ""
+  },
+  {
+    "id": "art-18",
+    "category": "art",
+    "name": "すてきなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "すてきなめいが【本物】.png",
+    "img_fake": "すてきなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "耳飾りの真珠が丸い形",
+    "desc_fake": "目を閉じていて耳飾りの真珠が星の形",
+    "desc_only": ""
+  },
+  {
+    "id": "art-19",
+    "category": "art",
+    "name": "すばらしいめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "すばらしいめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-20",
+    "category": "art",
+    "name": "たおやかなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "たおやかなめいが【本物】.png",
+    "img_fake": "たおやかなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "抱いてるイタチの色が白い",
+    "desc_fake": "抱いてるイタチの色が黒い",
+    "desc_only": ""
+  },
+  {
+    "id": "art-21",
+    "category": "art",
+    "name": "たぐいまれなるめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "たぐいまれなるめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-22",
+    "category": "art",
+    "name": "ちからづよいめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "ちからづよいめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-23",
+    "category": "art",
+    "name": "ちみつなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "ちみつなめいが【本物】.png",
+    "img_fake": "ちみつなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "花の色が緑色",
+    "desc_fake": "花の色が赤色",
+    "desc_only": ""
+  },
+  {
+    "id": "art-24",
+    "category": "art",
+    "name": "なぞめいためいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "なぞめいためいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-25",
+    "category": "art",
+    "name": "にぎやかなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "にぎやかなめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-26",
+    "category": "art",
+    "name": "ひかりのめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "ひかりのめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-27",
+    "category": "art",
+    "name": "またたくめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "またたくめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-28",
+    "category": "art",
+    "name": "みごとなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "みごとなめいが【本物】.png",
+    "img_fake": "みごとなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "左下に人が2人いる",
+    "desc_fake": "左下に人が1人しかいない",
+    "desc_only": ""
+  },
+  {
+    "id": "art-29",
+    "category": "art",
+    "name": "ゆうめいなめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "ゆうめいなめいが【本物】.png",
+    "img_fake": "ゆうめいなめいが【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "眉毛の量が少ない",
+    "desc_fake": "眉毛がつり上がっている",
+    "desc_only": ""
+  },
+  {
+    "id": "art-30",
+    "category": "art",
+    "name": "よくみるめいが",
+    "kind": "名画",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "よくみるめいが【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-31",
+    "category": "art",
+    "name": "いしあたまなちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "いしあたまなちょうこく【本物】.png",
+    "img_fake": "いしあたまなちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "口角が下がっている",
+    "desc_fake": "口角が上がって微笑んでいる",
+    "desc_only": ""
+  },
+  {
+    "id": "art-32",
+    "category": "art",
+    "name": "いだいなちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "いだいなちょうこく【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-33",
+    "category": "art",
+    "name": "いにしえのちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "いにしえのちょうこく【本物】.png",
+    "img_fake": "いにしえのちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "角がない",
+    "desc_fake": "角があり、目が光る",
+    "desc_only": ""
+  },
+  {
+    "id": "art-34",
+    "category": "art",
+    "name": "うつくしいちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "うつくしいちょうこく【本物】.png",
+    "img_fake": "うつくしいちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "首飾りがない",
+    "desc_fake": "首飾りがある",
+    "desc_only": ""
+  },
+  {
+    "id": "art-35",
+    "category": "art",
+    "name": "こうごうしいちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "こうごうしいちょうこく【本物】.png",
+    "img_fake": "こうごうしいちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "右足が前に出ている",
+    "desc_fake": "左足が前に出ている",
+    "desc_only": ""
+  },
+  {
+    "id": "art-36",
+    "category": "art",
+    "name": "しんぴてきなちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "しんぴてきなちょうこく【本物】.png",
+    "img_fake": "しんぴてきなちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "耳飾りがついていない",
+    "desc_fake": "耳飾りがついている",
+    "desc_only": ""
+  },
+  {
+    "id": "art-37",
+    "category": "art",
+    "name": "たくましいちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "たくましいちょうこく【本物】.png",
+    "img_fake": "たくましいちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "腕時計をつけていない",
+    "desc_fake": "腕時計をつけている",
+    "desc_only": ""
+  },
+  {
+    "id": "art-38",
+    "category": "art",
+    "name": "てがかりのちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "てがかりのちょうこく【本物】.png",
+    "img_fake": "てがかりのちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "黒色",
+    "desc_fake": "青色",
+    "desc_only": ""
+  },
+  {
+    "id": "art-39",
+    "category": "art",
+    "name": "とてつもないちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "とてつもないちょうこく【本物】.png",
+    "img_fake": "とてつもないちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "フタがついていない",
+    "desc_fake": "フタがついている",
+    "desc_only": ""
+  },
+  {
+    "id": "art-40",
+    "category": "art",
+    "name": "なじみのあるちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_only": "なじみのあるちょうこく【本物のみ】.png",
+    "img_real": "",
+    "img_fake": "",
+    "variant": "only",
+    "desc_only": "偽物が存在しません",
+    "desc_real": "",
+    "desc_fake": ""
+  },
+  {
+    "id": "art-41",
+    "category": "art",
+    "name": "ぼせいあふれるちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "ぼせいあふれるちょうこく【本物】.png",
+    "img_fake": "ぼせいあふれるちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "舌を出していない",
+    "desc_fake": "舌を出している",
+    "desc_only": ""
+  },
+  {
+    "id": "art-42",
+    "category": "art",
+    "name": "もののふのちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "もののふのちょうこく【本物】.png",
+    "img_fake": "もののふのちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "手に何も持っていない",
+    "desc_fake": "手にスコップを持っている",
+    "desc_only": ""
+  },
+  {
+    "id": "art-43",
+    "category": "art",
+    "name": "りりしいちょうこく",
+    "kind": "彫刻",
+    "initial": {
+      "caught": false
+    },
+    "img_real": "りりしいちょうこく【本物】.png",
+    "img_fake": "りりしいちょうこく【偽物】.png",
+    "img_only": "",
+    "variant": "both",
+    "desc_real": "右手に何も持っていない",
+    "desc_fake": "右手に本を持っている",
+    "desc_only": ""
+  }
+]
