@@ -23,8 +23,12 @@ body{
 
 /* ========= header (smart / compact) ========= */
 .topbar{
-  position: sticky;
+  /* iOS Safari で sticky + 動的高さ（チップ表示）時に描画が崩れることがあるため fixed に統一。
+     JS 側で header 高さ分だけ body に padding-top を付与して見た目を維持します。 */
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
   background: rgba(246,247,251,.86);
   backdrop-filter: blur(14px);
@@ -70,6 +74,7 @@ body{
   display:flex;
   flex-direction:column;
   line-height:1.08;
+  width:100%;
 }
 .brandTitle{
   font-size:16px;
@@ -77,6 +82,80 @@ body{
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+}
+
+.brandTitleRow{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  min-width:0;
+  width:100%;
+}
+
+.headerStats{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+  margin-left:auto;
+  justify-content:flex-end;
+  white-space:nowrap;
+  padding-bottom:2px;
+}
+
+.headerStats::-webkit-scrollbar{ height:0; }
+
+.statPill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.6);
+  font-size:11px;
+  font-weight:900;
+  color: var(--muted);
+}
+
+/* title-right overall progress (slightly more stylish) */
+.overallPill{
+  display:inline-flex;
+  flex-direction:column;
+  gap:4px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 6px 14px rgba(10,20,40,.06);
+  min-width: 108px;
+  text-align:right;
+}
+.overallTop{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:8px;
+}
+.overallLabel{ font-size:11px; font-weight:900; color: var(--muted); }
+.overallPct{ font-size:12px; font-weight:950; color: var(--text); }
+.overallBarWrap{
+  height:6px;
+  border-radius:999px;
+  background: rgba(10,20,40,.10);
+  overflow:hidden;
+}
+.overallBar{ height:100%; background: var(--accent); width:0; }
+
+.statPill b{
+  font-weight:950;
+  color: var(--text);
+}
+
+@media (max-width: 520px){
+  .headerStats{ max-width:48vw; }
+  .statPill{ padding:2px 6px; gap:4px; }
+  .overallPill{ padding:6px 8px; min-width: 98px; }
 }
 .brandSub{
   font-size:12px;
@@ -299,6 +378,13 @@ select:disabled,input:disabled{opacity:.55}
 .span2{grid-column: 1 / -1;}
 .spanAll{grid-column: 1 / -1;}
 .checksRow{gap:18px;}
+
+/* 化石/美術品：チェック済・未チェックは左揃え */
+.filtersGrid.fossilFilters .checksRow,
+.filtersGrid.artFilters .checksRow{
+  justify-content:flex-start;
+  justify-items:start;
+}
 .nowrap{flex-wrap:nowrap}
 
 /* prevent select from forcing large widths */
@@ -344,6 +430,9 @@ select:disabled,input:disabled{opacity:.55}
   .filtersGrid.hasShadow{ grid-template-columns: 1fr 1fr; }
   .filtersGrid.hasShadow .nameItem{ grid-column: 1 / -1; }
 
+  /* fish/bugs/sea: 半球 + Nowモード を同一行（50:50） */
+  .sectionGrid.hemiNow50{ grid-template-columns: 1fr 1fr; }
+  .sectionGrid.hemiNow50 .spanAll{ grid-column: 1 / -1; }
   /* Nowモード(手動)：
      1行目: Nowモード/手動（セレクト）
      2行目: 月 / 時間 / 全時間（左揃え・横並び） */
@@ -441,7 +530,6 @@ select:disabled,input:disabled{opacity:.55}
   .badge{max-width:100%;white-space:normal; word-break:break-word;}
   .nameRow{ white-space:normal; }
 }
-
 
 /* ===== icon sizing (PC: bigger & uniform) ===== */
 @media (min-width: 901px){
@@ -579,7 +667,6 @@ select:disabled,input:disabled{opacity:.55}
   }
 }
 
-
 /* Art compare */
 .artCompare{ display:flex; gap:12px; align-items:flex-start; padding: 8px 0; }
 .artCompare.one{ justify-content:flex-start; }
@@ -596,3 +683,99 @@ select:disabled,input:disabled{opacity:.55}
 }
 
 .detailRow .detailCell{ padding: 10px 12px; }
+
+/* ===== Filter chips ===== */
+
+/* ========= Sticky filter chips (in header) ========= */
+.chipsDock{
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-top: 6px;
+}
+
+.hintDock{
+  max-width: 1180px;
+  margin: 6px auto 0;
+}
+
+.hintBox{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px dashed var(--border);
+  background: rgba(255,255,255,.55);
+  color: var(--muted);
+  font-size:12px;
+  font-weight:900;
+}
+
+.hintClose{
+  appearance:none;
+  border:0;
+  background:transparent;
+  font-weight:950;
+  font-size:16px;
+  line-height:1;
+  padding:0 4px;
+  cursor:pointer;
+  color: var(--muted);
+}
+.chipsDock:empty{ display:none; }
+.chipsDock .filterChips{ margin:0; }
+.filterChips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+.chip{
+  appearance:none;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.7);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight:900;
+  font-size:12px;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+}
+.chip .chipX{ opacity:.75; font-weight:900; }
+.chip:active{ transform: translateY(1px); }
+
+/* ===== Progress dashboard ===== */
+.dashBoard{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin: 10px 0 14px;
+}
+.dashCard{
+  flex: 1 1 220px;
+  min-width: 200px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.65);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+.dashCard.dashSmall{ flex: 0 0 160px; min-width: 140px; }
+.dashLabel{ font-size:11px; color: var(--muted); font-weight:900; }
+.dashValue{ font-size:15px; font-weight:950; color: var(--text); margin-top:2px; }
+.dashSub{ font-size:12px; color: var(--muted); font-weight:900; }
+.dashBarWrap{
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(10,20,40,.10);
+  overflow:hidden;
+  margin-top: 8px;
+}
+.dashBar{ height:100%; background: var(--accent); width:0; }
+
+@media (max-width: 640px){
+  .dashCard{ flex: 1 1 160px; min-width: 150px; }
+  .dashCard.dashSmall{ flex: 1 1 140px; }
+}

@@ -8,7 +8,9 @@ function dispTimes(s){
 }
 function rememberedLocLabel(s){
   const t = String(s||"").trim();
-  return (t === "(指定なし)") ? "指定なし" : t;
+  if (t === "(指定なし)") return "指定なし";
+  if (t === "葉っぱに擬態している") return "葉っぱに擬態";
+  return t;
 }
 
 // months: [1..12] 数値配列から連続区間を作る（例: [1,2,3,7,8] -> [{s:1,e:3},{s:7,e:8}]）
@@ -67,6 +69,18 @@ function formatMonthsDisplayFromArray(months){
 
 const $ = (sel) => document.querySelector(sel);
 const STORAGE_KEY = "acnh_checklist_v4.1";
+
+// ===== fixed header spacer =====
+// header を position:fixed にしているため、内容が隠れないように body に同高さの padding-top を付与する。
+function syncHeaderOffset(){
+  const header = document.querySelector(".topbar");
+  if (!header) return;
+  const h = Math.ceil(header.getBoundingClientRect().height || 0);
+  // 余計な reflow を避けるため、差分があるときだけ更新
+  const cur = Number.parseInt((document.body.style.paddingTop||"0").replace("px",""), 10) || 0;
+  if (cur !== h) document.body.style.paddingTop = `${h}px`;
+  document.documentElement.style.setProperty("--headerH", `${h}px`);
+}
 
 // ★ 魚影サイズ（No -> 影）
 const FISH_SHADOW_BY_NO = {
@@ -237,13 +251,11 @@ function getArtDetailCompareHtml(it){
 
   if (it.variant === "only"){
     const url = getArtAssetUrl(it.img_only);
-    const d = (it.desc_only && String(it.desc_only).trim()) ? it.desc_only : "偽物が存在しません";
     return `
       <div class="artCompare one">
         <div class="artCol">
           <div class="artTitle">本物のみ</div>
           <img class="artCompareImg" src="${url}" alt="" loading="lazy" decoding="async">
-          ${descHtml(d)}
         </div>
       </div>
     `;
@@ -530,6 +542,204 @@ function applyFilters(kind, items){
   });
 }
 
+function getKindLabel(kind){
+  switch (String(kind || "")){
+    case "fish": return "魚";
+    case "bugs": return "虫";
+    case "sea": return "海の幸";
+    case "fossil": return "化石";
+    case "art": return "美術品";
+    default: return String(kind || "");
+  }
+}
+
+function getProgressStats(items){
+  const total = Array.isArray(items) ? items.length : 0;
+  let caught = 0;
+  if (total){
+    for (const it of items){
+      const mk = state.marks[it.id] || { caught:false };
+      if (mk.caught) caught++;
+    }
+  }
+  const uncaught = total - caught;
+  const pct = total ? Math.round((caught / total) * 100) : 0;
+  return { total, caught, uncaught, pct };
+}
+
+function renderProgressDashboard(kind, items){
+  const st = getProgressStats(items);
+  return `
+    <div class="dashBoard" aria-label="${escapeHtml(getKindLabel(kind))} コンプ率">
+      <div class="dashCard">
+        <div class="dashLabel">コンプ率</div>
+        <div class="dashValue">${st.pct}% <span class="dashSub">(${st.caught}/${st.total})</span></div>
+        <div class="dashBarWrap" aria-hidden="true"><div class="dashBar" style="width:${st.pct}%;"></div></div>
+      </div>
+    </div>
+  `;
+}
+
+
+function renderHeaderStats(){
+  // タイトル右側は「全体のコンプ率」のみ表示（スマホで見切れ対策）
+  const kinds = ["fish","bugs","sea","fossil","art"];
+  let all = [];
+  for (const k of kinds){
+    const arr = (cache && cache[k]) ? cache[k] : [];
+    if (Array.isArray(arr)) all = all.concat(arr);
+  }
+  const st = getProgressStats(all);
+  const title = `コンプ率(ALL) ${st.pct}% (${st.caught}/${st.total})`;
+  return `
+    <div class="overallPill" title="${escapeHtml(title)}" aria-label="全体のコンプ率">
+      <div class="overallTop">
+        <span class="overallLabel">コンプ率(ALL)</span>
+        <span class="overallPct">${st.pct}%</span>
+      </div>
+      <div class="overallBarWrap" aria-hidden="true">
+        <div class="overallBar" style="width:${st.pct}%;"></div>
+      </div>
+    </div>
+  `;
+}
+
+function updateHeaderStats(){
+  const el = document.getElementById("headerStats");
+  if (!el) return;
+  el.innerHTML = renderHeaderStats();
+}
+
+
+function getFilterChips(kind){
+  const chips = [];
+  const f = state.filters[kind] || {};
+  const s = state.settings || {};
+
+  const name = String(f.name || "").trim();
+  if (name) chips.push({ key:"name", text:`名前=${name}` });
+
+  if (kind === "art" && f.kind) chips.push({ key:"kind", text:`種類=${String(f.kind)}` });
+
+  if (kind !== "sea" && kind !== "fossil" && kind !== "art"){
+    const place = String(f.place || "");
+    if (place) chips.push({ key:"place", text:`場所=${rememberedLocLabel(place)}` });
+  }
+
+  if (kind === "fish" && f.shadow) chips.push({ key:"shadow", text:`魚影=${String(f.shadow)}` });
+
+  if (f.excludeAllYear) chips.push({ key:"excludeAllYear", text:"1年中を除外" });
+
+  if (f.caught === "caught") chips.push({ key:"caught", text:"チェック済" });
+  if (f.caught === "uncaught") chips.push({ key:"uncaught", text:"未チェック" });
+
+  if ((kind === "fish" || kind === "bugs" || kind === "sea") && s.showNowUI){
+    if (s.showNowOnly) chips.push({ key:"nowOnly", text:"いま狙える(Only)" });
+    if (s.sortNowFirst) chips.push({ key:"nowSort", text:"いま狙える(昇順)" });
+  }
+
+  return chips;
+}
+
+function renderFilterChips(kind){
+  const chips = getFilterChips(kind);
+  if (!chips.length) return "";
+  return `
+    <div class="filterChips" role="group" aria-label="絞り込み中">
+      ${chips.map(c => `
+        <button type="button" class="chip" data-act="chipClear" data-kind="${escapeHtml(kind)}" data-chip="${escapeHtml(c.key)}">
+          <span class="chipText">${escapeHtml(c.text)}</span>
+          <span class="chipX" aria-hidden="true">×</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function updateChipsDock(kind){
+  const dock = document.getElementById("chipsDock");
+  if (!dock) return;
+  dock.innerHTML = renderFilterChips(kind);
+}
+
+
+const DETAIL_HINT_KEY = "acnh_detail_hint_seen_v1";
+
+function shouldShowDetailHint(){
+  try{ return !localStorage.getItem(DETAIL_HINT_KEY); }catch{ return false; }
+}
+
+function markDetailHintSeen(){
+  try{ localStorage.setItem(DETAIL_HINT_KEY, "1"); }catch{}
+  const hd = document.getElementById("hintDock");
+  if (hd){
+    hd.hidden = true;
+    hd.innerHTML = "";
+  }
+}
+
+function updateHintDock(){
+  const hd = document.getElementById("hintDock");
+  if (!hd) return;
+  if (!shouldShowDetailHint()){
+    hd.hidden = true;
+    return;
+  }
+  hd.hidden = false;
+  hd.innerHTML = `
+    <div class="hintBox" role="note" aria-label="操作ヒント">
+      <span class="hintIcon" aria-hidden="true">💡</span>
+      <span class="hintText">名前をタップすると詳細が開きます</span>
+      <button type="button" class="hintClose" aria-label="閉じる">×</button>
+    </div>
+  `;
+}
+
+
+
+function clearFilterByChip(kind, chip){
+  kind = String(kind || "");
+  chip = String(chip || "");
+  if (!kind || !chip) return;
+
+  const f = state.filters[kind] || {};
+  const s = state.settings || {};
+
+  switch (chip){
+    case "name":
+      f.name = "";
+      break;
+    case "kind":
+      if (kind === "art") f.kind = "";
+      break;
+    case "place":
+      f.place = "";
+      break;
+    case "shadow":
+      if (kind === "fish") f.shadow = "";
+      break;
+    case "excludeAllYear":
+      f.excludeAllYear = false;
+      break;
+    case "caught":
+    case "uncaught":
+      f.caught = "all";
+      break;
+    case "nowOnly":
+      s.showNowOnly = false;
+      break;
+    case "nowSort":
+      s.sortNowFirst = false;
+      break;
+  }
+
+  state.filters[kind] = f;
+  state.settings = s;
+}
+
+
+
+
 /**
  * ★スマホ用表示のためのCSSをJSから注入
  */
@@ -685,8 +895,10 @@ function renderList(kind, items){
         <div class="badge">${filtered.length} 件</div>
       </div>
 
+      ${renderProgressDashboard(kind, items)}
+
       <!-- ===== PC/共通：上段（設定） ===== -->
-      <div class="sectionGrid">
+      <div class="sectionGrid hemiNow50">
         <!-- 半球 -->
         <div class="fitem">
           <div class="label">半球</div>
@@ -696,46 +908,45 @@ function renderList(kind, items){
           </select>
         </div>
 
-        <!-- Nowモード + 手動（月/時間/全時間） -->
-        <div class="fitem spanAll">
+        <!-- Nowモード（自動/手動） -->
+        <div class="fitem">
           <div class="label">Nowモード</div>
+          <select id="${kind}-set-nowMode">
+            <option value="auto" ${s.nowMode==="auto"?"selected":""}>自動</option>
+            <option value="manual" ${s.nowMode==="manual"?"selected":""}>手動</option>
+          </select>
+        </div>
 
-          <div class="nowModeBlock">
-            <div class="nowModeSelectRow">
-              <select id="${kind}-set-nowMode">
-                <option value="auto" ${s.nowMode==="auto"?"selected":""}>自動</option>
-                <option value="manual" ${s.nowMode==="manual"?"selected":""}>手動</option>
-              </select>
+        <!-- 手動時：月 / 時間 / 全時間 -->
+        <div class="fitem spanAll manualFitem" style="display:${s.nowMode==="manual"?"flex":"none"};">
+          <div class="label">手動</div>
+
+          <div class="manualRow">
+            <div class="manualStack manualMonth">
+              <div class="inlineLabel">月</div>
+              <select id="${kind}-set-month" ${manualDisabled?"disabled":""}>${monthOpts}</select>
             </div>
 
-            <!-- 手動時だけ表示：月 / 時間 / 全時間（左揃え・横並び） -->
-            <div class="manualRow" style="display:${s.nowMode==="manual"?"flex":"none"};">
-              <div class="manualStack manualMonth">
-                <div class="inlineLabel">月</div>
-                <select id="${kind}-set-month" ${manualDisabled?"disabled":""}>${monthOpts}</select>
-              </div>
-
-              <div class="manualStack manualHour">
-                <div class="inlineLabel">時間</div>
-                <select id="${kind}-set-hour" ${(manualDisabled||s.manualAnytime)?"disabled":""}>${hourOpts}</select>
-              </div>
-
-              <label class="row anytimeLabel">
-                <input type="checkbox" id="${kind}-set-anytime" ${s.manualAnytime?"checked":""} ${manualDisabled?"disabled":""}/>
-                <span class="inlineLabel">全時間</span>
-              </label>
+            <div class="manualStack manualHour">
+              <div class="inlineLabel">時間</div>
+              <select id="${kind}-set-hour" ${(manualDisabled||s.manualAnytime)?"disabled":""}>${hourOpts}</select>
             </div>
+
+            <label class="row anytimeLabel">
+              <input type="checkbox" id="${kind}-set-anytime" ${s.manualAnytime?"checked":""} ${manualDisabled?"disabled":""}/>
+              <span class="inlineLabel">全時間</span>
+            </label>
           </div>
         </div>
       </div>
 
       <!-- ===== PC/共通：中段（場所/魚影/名前） ===== -->
-      <div class="filtersGrid ${kind==="fish" ? "hasShadow" : ""}">
+      <div class="filtersGrid ${kind==="fish" ? "hasShadow" : ""} ">
         ${ kind!=="sea" ? `
         <div class="fitem">
           <div class="label">場所</div>
           <select id="${kind}-f-place">
-            ${placeOptions.map(p=> `<option value="${escapeHtml(p)}" ${String(f.place)===String(p)?"selected":""}>${p===""?"指定なし":escapeHtml(p)}</option>`).join("")}
+            ${placeOptions.map(p=> `<option value="${escapeHtml(p)}" ${String(f.place)===String(p)?"selected":""}>${p===""?"指定なし":escapeHtml(rememberedLocLabel(p))}</option>`).join("")}
           </select>
         </div>
         ` : `` }
@@ -1115,6 +1326,16 @@ html += `
     });
   }
 
+
+
+  // Filter chips (one-tap clear)
+  viewEl.querySelectorAll('button[data-act="chipClear"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      clearFilterByChip(kind, btn.getAttribute('data-chip'));
+      rerender();
+    });
+  });
+
   // Row checkbox (table + list)
   viewEl.querySelectorAll(`[data-act="caught"]`).forEach(el=>{
     el.addEventListener("change",(e)=>{
@@ -1141,6 +1362,7 @@ html += `
 
       detail.hidden = !detail.hidden;
 
+      markDetailHintSeen();
       const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
       if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
@@ -1173,7 +1395,9 @@ function renderFossilList(items){
         <div class="badge">${filtered.length} 件</div>
       </div>
 
-      <div class="filtersGrid">
+      ${renderProgressDashboard(kind, items)}
+
+      <div class="filtersGrid fossilFilters">
         <div class="fitem nameItem">
           <div class="label">名前（部分一致）</div>
           <div class="inputWithClear">
@@ -1364,6 +1588,16 @@ function renderFossilList(items){
     });
   }
 
+
+
+  // Filter chips (one-tap clear)
+  viewEl.querySelectorAll('button[data-act="chipClear"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      clearFilterByChip(kind, btn.getAttribute('data-chip'));
+      rerender();
+    });
+  });
+
   // Row checkbox (table + list)
   viewEl.querySelectorAll(`[data-act="caught"]`).forEach(el=>{
     el.addEventListener("change",(e)=>{
@@ -1391,6 +1625,7 @@ function renderFossilList(items){
 
       detail.hidden = !detail.hidden;
 
+      markDetailHintSeen();
       const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
       if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
@@ -1426,7 +1661,9 @@ function renderArtList(items){
         <div class="badge">${filtered.length} 件</div>
       </div>
 
-      <div class="filtersGrid">
+      ${renderProgressDashboard(kind, items)}
+
+      <div class="filtersGrid artFilters">
         <div class="fitem nameItem">
           <div class="label">名前（部分一致）</div>
           <div class="inputWithClear">
@@ -1635,6 +1872,16 @@ function renderArtList(items){
     });
   }
 
+
+
+  // Filter chips (one-tap clear)
+  viewEl.querySelectorAll('button[data-act="chipClear"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      clearFilterByChip(kind, btn.getAttribute('data-chip'));
+      rerender();
+    });
+  });
+
   // チェック（済）
   viewEl.querySelectorAll(`input[data-act="caught"][data-id]`).forEach(el=>{
     el.addEventListener("change", (e)=>{
@@ -1658,6 +1905,7 @@ function renderArtList(items){
         const detail = viewEl.querySelector(`[data-detail="${id}"]`);
         if (detail){
           detail.hidden = !detail.hidden;
+      markDetailHintSeen();
           trg.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
         }
         return;
@@ -1671,6 +1919,7 @@ function renderArtList(items){
       if (!detail) return;
 
       detail.hidden = !detail.hidden;
+      markDetailHintSeen();
       tr.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
 
@@ -1724,6 +1973,11 @@ async function render(){
     if (view === "fossil") renderFossilList(cache.fossil);
     else if (view === "art") renderArtList(cache.art);
     else renderList(view, cache[view]);
+    updateChipsDock(view);
+    updateHeaderStats();
+    updateHintDock();
+    // チップ表示/コンパクト切替で header 高さが変わるので同期
+    syncHeaderOffset();
     status("");
   } catch(e){
     console.error(e);
@@ -1732,6 +1986,8 @@ async function render(){
     const el = document.querySelector(`#view-${view}`);
     if (el) el.innerHTML = `<div class="card"><b>表示できません</b><div class="small">原因：初期化に失敗しました</div><div class="small" style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(String(e && (e.stack||e.message||e)))}</div><div class="small" style="margin-top:6px;">※ file:// 直開きで動かない場合は http://localhost などで開いてください。</div></div>`;
   } finally {
+    // 初期表示やエラー時でも padding がズレないよう保険
+    syncHeaderOffset();
     if (activeId){
       const el = document.getElementById(activeId);
       if (el){
@@ -1750,6 +2006,38 @@ async function render(){
 // tabs
 document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", ()=> setView(btn.dataset.view)));
 
+// fixed header: viewport 変更で高さが変わるので追従
+window.addEventListener("resize", ()=>{
+  // requestAnimationFrame でレイアウト確定後に計測
+  (window.requestAnimationFrame || setTimeout)(syncHeaderOffset, 0);
+});
+
+// sticky filter chips (header dock)
+(function initChipsDock(){
+  const dock = document.getElementById("chipsDock");
+  if (!dock) return;
+  dock.addEventListener("click", (e)=>{
+    const btn = e.target && e.target.closest ? e.target.closest('button[data-act="chipClear"]') : null;
+    if (!btn) return;
+    clearFilterByChip(btn.getAttribute("data-kind"), btn.getAttribute("data-chip"));
+    saveState();
+    render();
+  });
+})();
+
+
+(function initHintDock(){
+  const hd = document.getElementById("hintDock");
+  if (!hd) return;
+  hd.addEventListener("click", (e)=>{
+    const btn = e.target && e.target.closest ? e.target.closest(".hintClose") : null;
+    if (!btn) return;
+    markDetailHintSeen();
+  });
+})();
+
+
+
 /**
  * smart header:
  * - 「少しだけスクロール」の領域で tabs が出たり消えたりしないように、
@@ -1758,6 +2046,9 @@ document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", (
 (function initSmartHeader(){
   const header = document.querySelector(".topbar");
   if(!header) return;
+
+  // fixed header の初期スペーサー設定
+  syncHeaderOffset();
 
   let sentinel = document.getElementById("tabs-sentinel");
   if (!sentinel){
@@ -1812,6 +2103,8 @@ document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", (
     if (next === isCompact) return;
     isCompact = next;
     header.classList.toggle("compact", isCompact);
+    // compact 切替で header 高さが変わる
+    syncHeaderOffset();
   };
 
   const update = ()=>{
