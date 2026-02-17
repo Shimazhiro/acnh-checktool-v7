@@ -1,5 +1,301 @@
 // app.js
 
+// ===== subtle animations (WAAPI + CSS) =====
+const __motionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+const prefersReducedMotion = ()=> !!(__motionQuery && __motionQuery.matches);
+const __cssEsc = (s)=> (window.CSS && CSS.escape) ? CSS.escape(String(s)) : String(s).replace(/[^a-zA-Z0-9_\-]/g, "\\$&");
+
+const __EASE = "cubic-bezier(.2,.8,.2,1)";
+const __DUR_FAST = 120;
+const __DUR = 180;
+const __DUR_SLOW = 260;
+
+function __raf2(fn){
+  (window.requestAnimationFrame || setTimeout)(()=> (window.requestAnimationFrame || setTimeout)(fn, 0), 0);
+}
+
+// header is fixed; during height transitions (chips/compact) keep body padding synced
+function syncHeaderOffsetFor(ms=240){
+  const t0 = (performance && performance.now) ? performance.now() : Date.now();
+  const tick = ()=>{
+    syncHeaderOffset();
+    const t = (performance && performance.now) ? performance.now() : Date.now();
+    if (t - t0 < ms) (window.requestAnimationFrame || setTimeout)(tick, 16);
+  };
+  (window.requestAnimationFrame || setTimeout)(tick, 16);
+}
+
+const __detailAnim = new WeakMap();
+function setDetailOpen(detailEl, open, headEl){
+  if (!detailEl) return;
+  const row = detailEl.closest ? detailEl.closest(".cRow") : null;
+  const head = headEl || (row ? row.querySelector('.cHead') : null);
+
+  const applyInstant = (isOpen)=>{
+    detailEl.hidden = !isOpen;
+    if (row) row.classList.toggle("isOpen", isOpen);
+    if (head) head.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  };
+
+  // cancel in-flight
+  const prev = __detailAnim.get(detailEl);
+  if (prev){ try{ prev.cancel(); }catch{} __detailAnim.delete(detailEl); }
+
+  if (prefersReducedMotion()){
+    applyInstant(open);
+    syncHeaderOffset();
+    return;
+  }
+
+  if (open){
+    detailEl.hidden = false;
+    // start state
+    detailEl.style.overflow = "hidden";
+    detailEl.style.height = "0px";
+    detailEl.style.opacity = "0";
+    detailEl.style.transform = "translateY(-4px)";
+
+    // measure after layout settles
+    __raf2(()=>{
+      const target = detailEl.scrollHeight || 0;
+      const anim = detailEl.animate([
+        { height:"0px", opacity:0, transform:"translateY(-4px)" },
+        { height: target+"px", opacity:1, transform:"translateY(0px)" }
+      ], { duration: __DUR, easing: __EASE });
+
+      __detailAnim.set(detailEl, anim);
+      anim.onfinish = ()=>{
+        __detailAnim.delete(detailEl);
+        detailEl.style.height = "auto";
+        detailEl.style.opacity = "";
+        detailEl.style.transform = "";
+        detailEl.style.overflow = "";
+        if (row) row.classList.add("isOpen");
+        if (head) head.setAttribute("aria-expanded", "true");
+        syncHeaderOffsetFor(__DUR_SLOW);
+      };
+      anim.oncancel = ()=>{ __detailAnim.delete(detailEl); };
+    });
+  } else {
+    // closing
+    detailEl.hidden = false; // keep visible during animation
+    detailEl.style.overflow = "hidden";
+    const h = Math.max(0, detailEl.getBoundingClientRect().height || detailEl.scrollHeight || 0);
+    detailEl.style.height = h + "px";
+    detailEl.style.opacity = "1";
+    detailEl.style.transform = "translateY(0px)";
+
+    const anim = detailEl.animate([
+      { height: h+"px", opacity:1, transform:"translateY(0px)" },
+      { height:"0px", opacity:0, transform:"translateY(-4px)" }
+    ], { duration: __DUR, easing: __EASE });
+
+    __detailAnim.set(detailEl, anim);
+    anim.onfinish = ()=>{
+      __detailAnim.delete(detailEl);
+      detailEl.hidden = true;
+      detailEl.style.height = "";
+      detailEl.style.opacity = "";
+      detailEl.style.transform = "";
+      detailEl.style.overflow = "";
+      if (row) row.classList.remove("isOpen");
+      if (head) head.setAttribute("aria-expanded", "false");
+      syncHeaderOffsetFor(__DUR_SLOW);
+    };
+    anim.oncancel = ()=>{ __detailAnim.delete(detailEl); };
+  }
+}
+
+const __anim = {
+  lastListKey: "",
+  lastView: "",
+  didViewSwitch: false,
+  prevOverallPct: null,
+  prevKindPct: { fish:null, bugs:null, sea:null, fossil:null, art:null },
+  prevChipKeys: { fish:[], bugs:[], sea:[], fossil:[], art:[] }
+};
+
+function updateTabIndicator(view){
+  const tabsEl = document.querySelector(".tabs");
+  if (!tabsEl) return;
+  const ind = tabsEl.querySelector(".tabIndicator");
+  if (!ind) return;
+  const btn = tabsEl.querySelector(`.tab[data-view="${__cssEsc(view)}"]`);
+  if (!btn) return;
+
+  const r0 = tabsEl.getBoundingClientRect();
+  const r1 = btn.getBoundingClientRect();
+  const w = Math.max(24, Math.min(56, r1.width * 0.46));
+  const x = (r1.left - r0.left) + (r1.width - w) / 2;
+
+  tabsEl.style.setProperty("--tab-ind-x", `${x}px`);
+  ind.style.width = `${w}px`;
+  tabsEl.classList.add("hasIndicator");
+}
+
+function animateViewSwitch(fromView, toView){
+  if (prefersReducedMotion()) return;
+  const fromEl = fromView ? document.querySelector(`#view-${fromView}`) : null;
+  const toEl = toView ? document.querySelector(`#view-${toView}`) : null;
+  if (!toEl) return;
+
+  // ensure destination is visible for animation
+  toEl.classList.remove("hidden");
+
+  // set start states
+  toEl.style.opacity = "0";
+  toEl.style.transform = "translateX(10px)";
+
+  if (fromEl && !fromEl.classList.contains("hidden")){
+    const out = fromEl.animate([
+      { opacity:1, transform:"translateX(0px)" },
+      { opacity:0, transform:"translateX(-10px)" }
+    ], { duration: __DUR, easing: __EASE });
+
+    out.onfinish = ()=>{
+      fromEl.classList.add("hidden");
+      fromEl.style.opacity = "";
+      fromEl.style.transform = "";
+    };
+  }
+
+  const inn = toEl.animate([
+    { opacity:0, transform:"translateX(10px)" },
+    { opacity:1, transform:"translateX(0px)" }
+  ], { duration: __DUR, easing: __EASE });
+
+  inn.onfinish = ()=>{
+    toEl.style.opacity = "";
+    toEl.style.transform = "";
+  };
+}
+
+function animateListEnter(kind, suppress){
+  if (prefersReducedMotion() || suppress) return;
+  const viewEl = document.querySelector(`#view-${kind}`);
+  if (!viewEl) return;
+
+  const f = state.filters[kind] || {};
+  const s = state.settings || {};
+  const key = JSON.stringify({
+    kind,
+    // avoid animating every keystroke while typing: caller passes suppress=true for text inputs
+    f,
+    nowOnly: !!s.showNowOnly,
+    nowSort: !!s.sortNowFirst,
+    nowMode: s.nowMode,
+    manM: s.manualMonth,
+    manH: s.manualHour,
+    manAll: s.manualAllDay
+  });
+
+  if (!__anim.didViewSwitch && key === __anim.lastListKey) return;
+  __anim.lastListKey = key;
+
+  const rows = Array.from(viewEl.querySelectorAll(".cRow")).slice(0, 24);
+  rows.forEach((el, i)=>{
+    try{
+      el.animate([
+        { opacity:0, transform:"translateY(6px)" },
+        { opacity:1, transform:"translateY(0px)" }
+      ], { duration: __DUR_SLOW, easing: __EASE, delay: Math.min(160, i*12) });
+    }catch{}
+  });
+}
+
+function animateProgressIfChanged(activeKind){
+  if (prefersReducedMotion()) return;
+
+  // overall (header)
+  try{
+    const kinds = ["fish","bugs","sea","fossil","art"];
+    let all = [];
+    for (const k of kinds){
+      const arr = (cache && cache[k]) ? cache[k] : [];
+      if (Array.isArray(arr)) all = all.concat(arr);
+    }
+    const st = getProgressStats(all);
+    const pct = Number(st.pct) || 0;
+
+    const bar = document.querySelector("#headerStats .overallBar");
+    const pctEl = document.querySelector("#headerStats .overallPct");
+
+    if (bar){
+      const from = (__anim.prevOverallPct==null) ? pct : __anim.prevOverallPct;
+      bar.style.width = from + "%";
+      __raf2(()=>{ bar.style.transition = `width ${__DUR_SLOW}ms ${__EASE}`; bar.style.width = pct + "%"; });
+    }
+    if (pctEl && __anim.prevOverallPct!=null && __anim.prevOverallPct !== pct){
+      const a = __anim.prevOverallPct, b = pct;
+      const t0 = (performance && performance.now) ? performance.now() : Date.now();
+      const dur = __DUR_SLOW;
+      const tick = ()=>{
+        const t = ((performance && performance.now) ? performance.now() : Date.now()) - t0;
+        const u = Math.min(1, t/dur);
+        const v = Math.round(a + (b-a)*u);
+        pctEl.textContent = v + "%";
+        if (u < 1) (window.requestAnimationFrame || setTimeout)(tick, 16);
+      };
+      (window.requestAnimationFrame || setTimeout)(tick, 16);
+    }
+    __anim.prevOverallPct = pct;
+  }catch{}
+
+  // kind dashboard (active view)
+  try{
+    const kind = activeKind;
+    const arr = (cache && cache[kind]) ? cache[kind] : [];
+    const st = getProgressStats(arr);
+    const pct = Number(st.pct) || 0;
+    const bar = document.querySelector(`#view-${kind} .dashBar`);
+    const pctEl = document.querySelector(`#view-${kind} .dashPct`);
+    if (bar){
+      const from = (__anim.prevKindPct[kind]==null) ? pct : __anim.prevKindPct[kind];
+      bar.style.width = from + "%";
+      __raf2(()=>{ bar.style.transition = `width ${__DUR_SLOW}ms ${__EASE}`; bar.style.width = pct + "%"; });
+    }
+    // percent count-up (subtle)
+    if (pctEl && __anim.prevKindPct[kind]!=null && __anim.prevKindPct[kind] !== pct){
+      const a = __anim.prevKindPct[kind], b = pct;
+      const t0 = (performance && performance.now) ? performance.now() : Date.now();
+      const dur = __DUR_SLOW;
+      const tick = ()=>{
+        const t = ((performance && performance.now) ? performance.now() : Date.now()) - t0;
+        const u = Math.min(1, t/dur);
+        const v = Math.round(a + (b-a)*u);
+        pctEl.textContent = v + "%";
+        if (u < 1) (window.requestAnimationFrame || setTimeout)(tick, 16);
+      };
+      (window.requestAnimationFrame || setTimeout)(tick, 16);
+    }
+    __anim.prevKindPct[kind] = pct;
+  }catch{}
+}
+
+function animateChipsAfterUpdate(kind, prevKeys){
+  if (prefersReducedMotion()) return;
+  const dock = document.getElementById("chipsDock");
+  if (!dock) return;
+  const chips = Array.from(dock.querySelectorAll('button[data-act="chipClear"]'));
+  chips.forEach((btn, i)=>{
+    const key = btn.getAttribute("data-chip") || "";
+    if (prevKeys && prevKeys.includes(key)) return;
+    try{
+      btn.animate([
+        { opacity:0, transform:"scale(.98)" },
+        { opacity:1, transform:"scale(1)" }
+      ], { duration: __DUR, easing: __EASE, delay: Math.min(120, i*14) });
+    }catch{}
+  });
+}
+
+function postRenderAnimations(kind, suppressList){
+  updateTabIndicator(kind);
+  animateProgressIfChanged(kind);
+  animateListEnter(kind, suppressList);
+  __anim.didViewSwitch = false;
+}
+
 function dispTimes(s){
   const t = String(s||"").trim();
   if (!t) return "";
@@ -573,7 +869,7 @@ function renderProgressDashboard(kind, items){
     <div class="dashBoard" aria-label="${escapeHtml(getKindLabel(kind))} コンプ率">
       <div class="dashCard">
         <div class="dashLabel">コンプ率</div>
-        <div class="dashValue">${st.pct}% <span class="dashSub">(${st.caught}/${st.total})</span></div>
+        <div class="dashValue"><span class="dashPct">${st.pct}%</span> <span class="dashSub">(${st.caught}/${st.total})</span></div>
         <div class="dashBarWrap" aria-hidden="true"><div class="dashBar" style="width:${st.pct}%;"></div></div>
       </div>
     </div>
@@ -659,7 +955,23 @@ function renderFilterChips(kind){
 function updateChipsDock(kind){
   const dock = document.getElementById("chipsDock");
   if (!dock) return;
-  dock.innerHTML = renderFilterChips(kind);
+
+  kind = String(kind || "");
+  const prevKeys = (__anim.prevChipKeys && __anim.prevChipKeys[kind]) ? __anim.prevChipKeys[kind].slice() : [];
+
+  const html = renderFilterChips(kind);
+  dock.innerHTML = html;
+
+  const isEmpty = !String(html || "").trim();
+  dock.classList.toggle("isEmpty", isEmpty);
+
+  // chip enter animation (only for newly added keys)
+  const newKeys = Array.from(dock.querySelectorAll('button[data-act="chipClear"]')).map(b=>b.getAttribute("data-chip")||"");
+  if (__anim.prevChipKeys) __anim.prevChipKeys[kind] = newKeys;
+
+  animateChipsAfterUpdate(kind, prevKeys);
+  // chips expand/collapse changes header height gradually
+  syncHeaderOffsetFor(__DUR_SLOW);
 }
 
 
@@ -1051,7 +1363,7 @@ function renderList(kind, items){
 
 
 html += `
-  <div class="cRow">
+  <div class="cRow ${mk.caught?"isChecked":""}" data-row="${it.id}">
     <div class="cHead" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
       <label class="cChk" aria-label="チェック">
         <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
@@ -1360,11 +1672,10 @@ html += `
       const detail = viewEl.querySelector(`[data-detail="${id}"]`);
       if (!detail) return;
 
-      detail.hidden = !detail.hidden;
+      const open = !!detail.hidden;
 
+      setDetailOpen(detail, open);
       markDetailHintSeen();
-      const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
-      if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
 
     // キーボード操作（Enter / Space）でも開閉
@@ -1442,7 +1753,7 @@ function renderFossilList(items){
     const iconHtml = getFossilIconImgHtmlByName(it.name);
 
     html += `
-      <div class="cRow">
+      <div class="cRow ${mk.caught?"isChecked":""}" data-row="${it.id}">
         <div class="cHead" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
           <label class="cChk" aria-label="チェック">
             <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
@@ -1623,11 +1934,10 @@ function renderFossilList(items){
       const detail = viewEl.querySelector(`[data-detail="${id}"]`);
       if (!detail) return;
 
-      detail.hidden = !detail.hidden;
+      const open = !!detail.hidden;
 
+      setDetailOpen(detail, open);
       markDetailHintSeen();
-      const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
-      if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
 
     // キーボード操作（Enter / Space）でも開閉
@@ -1716,7 +2026,7 @@ function renderArtList(items){
     const detailHtml = getArtDetailCompareHtml(it);
 
     html += `
-      <div class="cRow">
+      <div class="cRow ${mk.caught?"isChecked":""}" data-row="${it.id}">
         <div class="cHead" data-act="toggleArt" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
           <label class="cChk" aria-label="チェック">
             <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
@@ -1904,9 +2214,9 @@ function renderArtList(items){
         const id = trg.getAttribute("data-id");
         const detail = viewEl.querySelector(`[data-detail="${id}"]`);
         if (detail){
-          detail.hidden = !detail.hidden;
-      markDetailHintSeen();
-          trg.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
+          const open = !!detail.hidden;
+          setDetailOpen(detail, open, trg);
+          markDetailHintSeen();
         }
         return;
       }
@@ -1918,9 +2228,9 @@ function renderArtList(items){
       const detail = viewEl.querySelector(`tr[data-detail-desk="${id}"]`);
       if (!detail) return;
 
-      detail.hidden = !detail.hidden;
+      const open = !!detail.hidden;
+      setDetailOpen(detail, open, tr);
       markDetailHintSeen();
-      tr.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
 
     // キーボード操作（Enter / Space）でも開閉（mobile head）
@@ -1935,12 +2245,34 @@ function renderArtList(items){
 }
 
 function setView(view){
+  view = String(view || "fish");
+  const prev = state.currentView || "fish";
+  const same = (prev === view);
+
+  // tabs
   document.querySelectorAll(".tab").forEach(b=>{
-    b.classList.toggle("active", b.dataset.view === view);
+    const on = (b.dataset.view === view);
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
   });
-  ["fish","bugs","sea","fossil","art"].forEach(v=>{
-    document.querySelector(`#view-${v}`).classList.toggle("hidden", v !== view);
-  });
+
+  if (!same){
+    // view swap (animated)
+    if (!prefersReducedMotion()) animateViewSwitch(prev, view);
+    else {
+      ["fish","bugs","sea","fossil","art"].forEach(v=>{
+        document.querySelector(`#view-${v}`).classList.toggle("hidden", v !== view);
+      });
+    }
+    __anim.didViewSwitch = true;
+    __anim.lastView = view;
+  } else {
+    // initial sync / no-op update
+    ["fish","bugs","sea","fossil","art"].forEach(v=>{
+      document.querySelector(`#view-${v}`).classList.toggle("hidden", v !== view);
+    });
+  }
+
   state.currentView = view;
   saveState();
   render();
@@ -1978,6 +2310,8 @@ async function render(){
     updateHintDock();
     // チップ表示/コンパクト切替で header 高さが変わるので同期
     syncHeaderOffset();
+    // Subtle animations (skip while typing)
+    postRenderAnimations(view, isTextInput);
     status("");
   } catch(e){
     console.error(e);
@@ -2009,7 +2343,7 @@ document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", (
 // fixed header: viewport 変更で高さが変わるので追従
 window.addEventListener("resize", ()=>{
   // requestAnimationFrame でレイアウト確定後に計測
-  (window.requestAnimationFrame || setTimeout)(syncHeaderOffset, 0);
+  (window.requestAnimationFrame || setTimeout)(()=>{ syncHeaderOffset(); updateTabIndicator(state.currentView||"fish"); }, 0);
 });
 
 // sticky filter chips (header dock)
@@ -2019,6 +2353,21 @@ window.addEventListener("resize", ()=>{
   dock.addEventListener("click", (e)=>{
     const btn = e.target && e.target.closest ? e.target.closest('button[data-act="chipClear"]') : null;
     if (!btn) return;
+    // animate chip removal (subtle) then apply
+    if (!prefersReducedMotion()){
+      try{
+        const a = btn.animate([
+          { opacity:1, transform:"scale(1)" },
+          { opacity:0, transform:"scale(.98)" }
+        ], { duration: __DUR_FAST, easing: __EASE });
+        a.onfinish = ()=>{
+          clearFilterByChip(btn.getAttribute("data-kind"), btn.getAttribute("data-chip"));
+          saveState();
+          render();
+        };
+        return;
+      }catch{}
+    }
     clearFilterByChip(btn.getAttribute("data-kind"), btn.getAttribute("data-chip"));
     saveState();
     render();
@@ -2103,8 +2452,8 @@ window.addEventListener("resize", ()=>{
     if (next === isCompact) return;
     isCompact = next;
     header.classList.toggle("compact", isCompact);
-    // compact 切替で header 高さが変わる
-    syncHeaderOffset();
+    // compact 切替で header 高さが変わる（transition 中も追従）
+    syncHeaderOffsetFor(__DUR_SLOW);
   };
 
   const update = ()=>{
