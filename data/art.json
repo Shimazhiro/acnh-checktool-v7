@@ -683,8 +683,8 @@
     "img_fake": "りりしいちょうこく【偽物】.png",
     "img_only": "",
     "variant": "both",
-    "desc_real": "右手に何も持っていない",
-    "desc_fake": "右手に本を持っている",
+    "desc_real": "（解説未入力）",
+    "desc_fake": "（解説未入力）",
     "desc_only": ""
   }
 ]

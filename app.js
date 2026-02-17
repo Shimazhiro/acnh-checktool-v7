@@ -577,7 +577,10 @@ function ensureCompactStyles(){
 .cNo{ font-weight:900; font-size:12px; color: var(--muted); flex:0 0 auto; }
 .cIconBig{ flex:0 0 auto; display:flex; align-items:center; }
 .cIconBig .bugIcon,
-.cIconBig .fishIcon{ width:34px; height:34px; border-radius:10px; min-width:34px; min-height:34px; }
+.cIconBig .fishIcon,
+.cIconBig .seaIcon,
+.cIconBig .fossilIcon,
+.cIconBig .artIcon{ width:52px; height:52px; border-radius:14px; min-width:52px; min-height:52px; object-fit:contain; }
 .cNameLine{ flex:1 1 auto; min-width:0; display:flex; align-items:center; }
 .cNameText{ font-weight:950; font-size:15px; color: var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .badge.now.inlineNow{ margin-left:auto; }

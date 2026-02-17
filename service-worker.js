@@ -1,5 +1,5 @@
 // Bump cache name when shipping UI/layout changes so mobile Safari refreshes reliably.
-const CACHE_NAME = "acnh-checklist-v4-1-22header-smartheader-fix-d5-fossil-art2-artSample1";
+const CACHE_NAME = "acnh-checklist-v4-1-22header-smartheader-fix-d5-fossil-art2-artSample1-iconsUniform1";
 const ASSETS = [
   "./",
   "./index.html",
