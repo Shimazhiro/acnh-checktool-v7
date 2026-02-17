@@ -1,11 +1,5 @@
 // app.js
 
-function dispMonths(s){
-  const t = String(s||"").trim();
-  if (!t) return "";
-  if (/^1月\s*[〜～-]\s*12月$/.test(t)) return "1年中";
-  return t;
-}
 function dispTimes(s){
   const t = String(s||"").trim();
   if (!t) return "";
@@ -68,19 +62,8 @@ function formatMonthsDisplayFromArray(months){
   }).join("、");
 }
 
-// あつまれどうぶつの森 チェックツール（オフラインPWA） v4.1
-// 修正点：
-// - 生き物が表示されない問題に対応（fetch失敗時は data-inline.js を利用）
-// - 書き出し/読み込み（JSON）を削除
-// - 出現（月/時間）を「出現月」「出現時間」に分割
-// - 操作UI（設定/絞り込み/ソート/検索）を整列（グリッド化）
-// - ★スマホは No+名前だけのカード一覧にし、タップで詳細展開（見やすく）
-// - ★魚影サイズを表示
-// - ★「チェック済表示」「未チェック表示」「1年中を除外」を追加
-// - ★「状態」セレクトを削除し、位置に「すべてチェック」「すべて解除」ボタンを配置（表示中のfilteredに対して実行）
-// - ★見た目のバランスを整える（filtersGrid / checksRow / 一括ボタン整列）
-// - ★footerが空でも表示領域を奪う問題 → status空の時はfooter自体を非表示
-// - ★ヘッダー揺れ対策（タブ表示のヒステリシス + IntersectionObserver）
+// あつまれどうぶつの森 チェックツール（オフラインPWA）
+// ※機能・表示は現状維持。コード整理のみ。
 
 const $ = (sel) => document.querySelector(sel);
 const STORAGE_KEY = "acnh_checklist_v4.1";
@@ -855,7 +838,7 @@ function renderList(kind, items){
       ? `${iconHtml}<span class="bugNameText">${escapeHtml(it.name)}</span>`
       : escapeHtml(it.name);
 
-    
+
 html += `
   <div class="cRow">
     <div class="cHead" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
