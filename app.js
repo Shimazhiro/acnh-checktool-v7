@@ -567,13 +567,95 @@ function getProgressStats(items){
   return { total, caught, uncaught, pct };
 }
 
+const PROGRESS_PREV = { all:null, fish:null, bugs:null, sea:null, fossil:null, art:null };
+
+function prefersReducedMotion(){
+  try{ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }catch{ return false; }
+}
+
+function animateBarWidth(el, fromPct, toPct){
+  if (!el || fromPct==null || toPct==null) return;
+  if (fromPct === toPct){ el.style.width = toPct + "%"; return; }
+  if (prefersReducedMotion()){ el.style.width = toPct + "%"; return; }
+
+  // Ensure transition runs even after a re-render (new node).
+  el.style.transition = "none";
+  el.style.width = fromPct + "%";
+  // force reflow
+  void el.getBoundingClientRect();
+  el.style.transition = "";
+  requestAnimationFrame(()=>{ el.style.width = toPct + "%"; });
+}
+
+function animatePctText(el, fromPct, toPct){
+  if (!el || fromPct==null || toPct==null) return;
+  if (fromPct === toPct){ el.textContent = toPct + "%"; return; }
+  if (prefersReducedMotion()){ el.textContent = toPct + "%"; return; }
+
+  const start = performance.now();
+  const dur = 260;
+  const a = Number(fromPct), b = Number(toPct);
+  function step(t){
+    const p = Math.min(1, (t - start) / dur);
+    const v = Math.round(a + (b - a) * p);
+    el.textContent = v + "%";
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function updateKindProgressMotion(kind, items){
+  const st = getProgressStats(items);
+  const prev = PROGRESS_PREV[kind];
+  PROGRESS_PREV[kind] = st.pct;
+
+  const viewEl = document.querySelector(`#view-${kind}`);
+  if (!viewEl) return;
+
+  const bar = viewEl.querySelector(".dashBar");
+  const pctEl = viewEl.querySelector(".dashPct");
+
+  if (prev == null){
+    if (bar) bar.style.width = st.pct + "%";
+    if (pctEl) pctEl.textContent = st.pct + "%";
+    return;
+  }
+  animateBarWidth(bar, prev, st.pct);
+  animatePctText(pctEl, prev, st.pct);
+}
+
+function updateAllProgressMotion(){
+  const kinds = ["fish","bugs","sea","fossil","art"];
+  let all = [];
+  for (const k of kinds){
+    const arr = (cache && cache[k]) ? cache[k] : [];
+    if (Array.isArray(arr)) all = all.concat(arr);
+  }
+  const st = getProgressStats(all);
+  const prev = PROGRESS_PREV.all;
+  PROGRESS_PREV.all = st.pct;
+
+  const wrap = document.getElementById("headerStats");
+  if (!wrap) return;
+  const bar = wrap.querySelector(".overallBar");
+  const pctEl = wrap.querySelector(".overallPct");
+
+  if (prev == null){
+    if (bar) bar.style.width = st.pct + "%";
+    if (pctEl) pctEl.textContent = st.pct + "%";
+    return;
+  }
+  animateBarWidth(bar, prev, st.pct);
+  animatePctText(pctEl, prev, st.pct);
+}
+
 function renderProgressDashboard(kind, items){
   const st = getProgressStats(items);
   return `
     <div class="dashBoard" aria-label="${escapeHtml(getKindLabel(kind))} コンプ率">
       <div class="dashCard">
         <div class="dashLabel">コンプ率</div>
-        <div class="dashValue">${st.pct}% <span class="dashSub">(${st.caught}/${st.total})</span></div>
+        <div class="dashValue"><span class="dashPct">${st.pct}%</span> <span class="dashSub">(${st.caught}/${st.total})</span></div>
         <div class="dashBarWrap" aria-hidden="true"><div class="dashBar" style="width:${st.pct}%;"></div></div>
       </div>
     </div>
@@ -608,6 +690,8 @@ function updateHeaderStats(){
   const el = document.getElementById("headerStats");
   if (!el) return;
   el.innerHTML = renderHeaderStats();
+  // progress motion (ALL)
+  updateAllProgressMotion();
 }
 
 
@@ -665,8 +749,30 @@ function updateChipsDock(kind){
 
 const DETAIL_HINT_KEY = "acnh_detail_hint_seen_v1";
 
+function isListMode(){
+  try{ return !!(window.matchMedia && window.matchMedia("(max-width: 900px)").matches); }catch{ return false; }
+}
+function getPointerVerb(){
+  try{
+    const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    return coarse ? "タップ" : "クリック";
+  }catch{ return "タップ"; }
+}
+function hasCollapsibleDetailsInView(){
+  const view = state.currentView || "fish";
+  const el = document.querySelector(`#view-${view}`);
+  if (!el) return false;
+  // list mode only
+  const list = el.querySelector(".cList");
+  if (!list) return false;
+  // list exists but no collapsible detail -> no hint
+  return !!el.querySelector(".cDetail[hidden]");
+}
 function shouldShowDetailHint(){
-  try{ return !localStorage.getItem(DETAIL_HINT_KEY); }catch{ return false; }
+  try{ if (localStorage.getItem(DETAIL_HINT_KEY)) return false; }catch{}
+  if (!isListMode()) return false;
+  if (!hasCollapsibleDetailsInView()) return false;
+  return true;
 }
 
 function markDetailHintSeen(){
@@ -689,7 +795,7 @@ function updateHintDock(){
   hd.innerHTML = `
     <div class="hintBox" role="note" aria-label="操作ヒント">
       <span class="hintIcon" aria-hidden="true">💡</span>
-      <span class="hintText">名前をタップすると詳細が開きます</span>
+      <span class="hintText">サムネ右上のiを${getPointerVerb()}すると詳細が開きます</span>
       <button type="button" class="hintClose" aria-label="閉じる">×</button>
     </div>
   `;
@@ -1052,7 +1158,7 @@ function renderList(kind, items){
 
 html += `
   <div class="cRow">
-    <div class="cHead" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
+    <div class="cHead cCollapsible" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-${kind}-${it.id}">
       <label class="cChk" aria-label="チェック">
         <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
       </label>
@@ -1060,17 +1166,16 @@ html += `
       <div class="cNo">No.${it.no ?? ""}</div>
 
       <div class="cIconBig">
-        ${iconHtml}
+        ${iconHtml ? `<span class="thumbWrap">${iconHtml}<span class="thumbInfo" aria-hidden="true">i</span></span>` : ``}
       </div>
 
       <div class="cNameLine">
         <div class="cNameText">${escapeHtml(it.name)}</div>
+        ${(s.showNowUI && now) ? `<span class="badge now inlineNow">狙える</span>` : ``}
       </div>
-
-      ${(s.showNowUI && now) ? `<span class="badge now inlineNow">狙える</span>` : ``}
     </div>
 
-    <div class="cDetail" data-detail="${it.id}" hidden>
+    <div class="cDetail" id="detail-${kind}-${it.id}" data-detail="${it.id}" hidden>
           <div class="cGrid">
             <div class="cItem">
               <div class="cLabel">売値</div>
@@ -1154,7 +1259,7 @@ html += `
         <td data-label="No">${it.no ?? ""}</td>
         <td class="td-name" data-label="名前">
           <div class="nameRow">
-            ${iconHtml}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+            ${iconHtml ? `<span class="thumbWrap thumbWrap--tbl">${iconHtml}<span class="thumbInfo thumbInfo--tbl" aria-hidden="true">i</span></span>` : ``}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
             ${(s.showNowUI && now) ? `<span class="badge now">いま狙える</span>` : ``}
           </div>
         </td>
@@ -1176,6 +1281,10 @@ html += `
 
   const viewEl = document.querySelector(`#view-${kind}`);
   viewEl.innerHTML = html;
+
+
+  // progress motion (kind)
+  updateKindProgressMotion(kind, items);
 
   const rerender = ()=>{
     const ae = document.activeElement;
@@ -1362,9 +1471,15 @@ html += `
 
       detail.hidden = !detail.hidden;
 
-      markDetailHintSeen();
       const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
-      if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
+      if (head) {
+        const expanded = !detail.hidden;
+        head.setAttribute("aria-expanded", expanded ? "true" : "false");
+        head.classList.toggle("open", expanded);
+      }
+
+      markDetailHintSeen();
+      updateHintDock();
     });
 
     // キーボード操作（Enter / Space）でも開閉
@@ -1443,13 +1558,13 @@ function renderFossilList(items){
 
     html += `
       <div class="cRow">
-        <div class="cHead" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
+        <div class="cHead cCollapsible" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-${kind}-${it.id}">
           <label class="cChk" aria-label="チェック">
             <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
           </label>
 
           <div class="cIconBig">
-            ${iconHtml}
+            ${iconHtml ? `<span class="thumbWrap">${iconHtml}<span class="thumbInfo" aria-hidden="true">i</span></span>` : ``}
           </div>
 
           <div class="cNameLine">
@@ -1457,7 +1572,7 @@ function renderFossilList(items){
           </div>
         </div>
 
-        <div class="cDetail" data-detail="${it.id}" hidden>
+        <div class="cDetail" id="detail-${kind}-${it.id}" data-detail="${it.id}" hidden>
           <div class="cGrid fossilGrid">
             <div class="cItem">
               <div class="cLabel">売値</div>
@@ -1495,7 +1610,7 @@ function renderFossilList(items){
         <td data-label="済"><input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}></td>
         <td class="td-name" data-label="名前">
           <div class="nameRow">
-            ${iconHtml}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+            ${iconHtml ? `<span class="thumbWrap thumbWrap--tbl">${iconHtml}<span class="thumbInfo thumbInfo--tbl" aria-hidden="true">i</span></span>` : ``}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
           </div>
         </td>
         <td data-label="売値">${escapeHtml(priceText)}</td>
@@ -1512,6 +1627,10 @@ function renderFossilList(items){
 
   const viewEl = document.querySelector(`#view-${kind}`);
   viewEl.innerHTML = html;
+
+
+  // progress motion (kind)
+  updateKindProgressMotion(kind, items);
 
   const rerender = ()=>{
     saveState();
@@ -1625,9 +1744,15 @@ function renderFossilList(items){
 
       detail.hidden = !detail.hidden;
 
-      markDetailHintSeen();
       const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
-      if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
+      if (head) {
+        const expanded = !detail.hidden;
+        head.setAttribute("aria-expanded", expanded ? "true" : "false");
+        head.classList.toggle("open", expanded);
+      }
+
+      markDetailHintSeen();
+      updateHintDock();
     });
 
     // キーボード操作（Enter / Space）でも開閉
@@ -1717,13 +1842,13 @@ function renderArtList(items){
 
     html += `
       <div class="cRow">
-        <div class="cHead" data-act="toggleArt" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
+        <div class="cHead cCollapsible" data-act="toggleArt" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-${kind}-${it.id}">
           <label class="cChk" aria-label="チェック">
             <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
           </label>
 
           <div class="cIconBig">
-            ${iconHtml}
+            ${iconHtml ? `<span class="thumbWrap">${iconHtml}<span class="thumbInfo" aria-hidden="true">i</span></span>` : ``}
           </div>
 
           <div class="cNameLine">
@@ -1731,7 +1856,7 @@ function renderArtList(items){
           </div>
         </div>
 
-        <div class="cDetail" data-detail="${it.id}" hidden>
+        <div class="cDetail" id="detail-${kind}-${it.id}" data-detail="${it.id}" hidden>
           ${detailHtml}
         </div>
       </div>
@@ -1763,7 +1888,7 @@ function renderArtList(items){
         <td data-label="済"><input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}></td>
         <td class="td-name" data-label="名前">
           <div class="nameRow">
-            ${iconHtml}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+            ${iconHtml ? `<span class="thumbWrap thumbWrap--tbl">${iconHtml}<span class="thumbInfo thumbInfo--tbl" aria-hidden="true">i</span></span>` : ``}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
           </div>
         </td>
       </tr>
@@ -1784,6 +1909,10 @@ function renderArtList(items){
 
   const viewEl = document.querySelector(`#view-${kind}`);
   viewEl.innerHTML = html;
+
+
+  // progress motion (kind)
+  updateKindProgressMotion(kind, items);
 
   const rerender = ()=>{
     saveState();
@@ -1905,8 +2034,11 @@ function renderArtList(items){
         const detail = viewEl.querySelector(`[data-detail="${id}"]`);
         if (detail){
           detail.hidden = !detail.hidden;
-      markDetailHintSeen();
-          trg.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
+          const expanded = !detail.hidden;
+          trg.setAttribute("aria-expanded", expanded ? "true" : "false");
+          trg.classList.toggle("open", expanded);
+          markDetailHintSeen();
+          updateHintDock();
         }
         return;
       }
