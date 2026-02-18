@@ -567,95 +567,13 @@ function getProgressStats(items){
   return { total, caught, uncaught, pct };
 }
 
-const PROGRESS_PREV = { all:null, fish:null, bugs:null, sea:null, fossil:null, art:null };
-
-function prefersReducedMotion(){
-  try{ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }catch{ return false; }
-}
-
-function animateBarWidth(el, fromPct, toPct){
-  if (!el || fromPct==null || toPct==null) return;
-  if (fromPct === toPct){ el.style.width = toPct + "%"; return; }
-  if (prefersReducedMotion()){ el.style.width = toPct + "%"; return; }
-
-  // Ensure transition runs even after a re-render (new node).
-  el.style.transition = "none";
-  el.style.width = fromPct + "%";
-  // force reflow
-  void el.getBoundingClientRect();
-  el.style.transition = "";
-  requestAnimationFrame(()=>{ el.style.width = toPct + "%"; });
-}
-
-function animatePctText(el, fromPct, toPct){
-  if (!el || fromPct==null || toPct==null) return;
-  if (fromPct === toPct){ el.textContent = toPct + "%"; return; }
-  if (prefersReducedMotion()){ el.textContent = toPct + "%"; return; }
-
-  const start = performance.now();
-  const dur = 260;
-  const a = Number(fromPct), b = Number(toPct);
-  function step(t){
-    const p = Math.min(1, (t - start) / dur);
-    const v = Math.round(a + (b - a) * p);
-    el.textContent = v + "%";
-    if (p < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
-
-function updateKindProgressMotion(kind, items){
-  const st = getProgressStats(items);
-  const prev = PROGRESS_PREV[kind];
-  PROGRESS_PREV[kind] = st.pct;
-
-  const viewEl = document.querySelector(`#view-${kind}`);
-  if (!viewEl) return;
-
-  const bar = viewEl.querySelector(".dashBar");
-  const pctEl = viewEl.querySelector(".dashPct");
-
-  if (prev == null){
-    if (bar) bar.style.width = st.pct + "%";
-    if (pctEl) pctEl.textContent = st.pct + "%";
-    return;
-  }
-  animateBarWidth(bar, prev, st.pct);
-  animatePctText(pctEl, prev, st.pct);
-}
-
-function updateAllProgressMotion(){
-  const kinds = ["fish","bugs","sea","fossil","art"];
-  let all = [];
-  for (const k of kinds){
-    const arr = (cache && cache[k]) ? cache[k] : [];
-    if (Array.isArray(arr)) all = all.concat(arr);
-  }
-  const st = getProgressStats(all);
-  const prev = PROGRESS_PREV.all;
-  PROGRESS_PREV.all = st.pct;
-
-  const wrap = document.getElementById("headerStats");
-  if (!wrap) return;
-  const bar = wrap.querySelector(".overallBar");
-  const pctEl = wrap.querySelector(".overallPct");
-
-  if (prev == null){
-    if (bar) bar.style.width = st.pct + "%";
-    if (pctEl) pctEl.textContent = st.pct + "%";
-    return;
-  }
-  animateBarWidth(bar, prev, st.pct);
-  animatePctText(pctEl, prev, st.pct);
-}
-
 function renderProgressDashboard(kind, items){
   const st = getProgressStats(items);
   return `
     <div class="dashBoard" aria-label="${escapeHtml(getKindLabel(kind))} コンプ率">
       <div class="dashCard">
         <div class="dashLabel">コンプ率</div>
-        <div class="dashValue"><span class="dashPct">${st.pct}%</span> <span class="dashSub">(${st.caught}/${st.total})</span></div>
+        <div class="dashValue"><span class="dashPctNum">${st.pct}</span>% <span class="dashSub">(${st.caught}/${st.total})</span></div>
         <div class="dashBarWrap" aria-hidden="true"><div class="dashBar" style="width:${st.pct}%;"></div></div>
       </div>
     </div>
@@ -677,7 +595,7 @@ function renderHeaderStats(){
     <div class="overallPill" title="${escapeHtml(title)}" aria-label="全体のコンプ率">
       <div class="overallTop">
         <span class="overallLabel">コンプ率(ALL)</span>
-        <span class="overallPct">${st.pct}%</span>
+        <span class="overallPct"><span class="overallPctNum">${st.pct}</span>%</span>
       </div>
       <div class="overallBarWrap" aria-hidden="true">
         <div class="overallBar" style="width:${st.pct}%;"></div>
@@ -690,8 +608,87 @@ function updateHeaderStats(){
   const el = document.getElementById("headerStats");
   if (!el) return;
   el.innerHTML = renderHeaderStats();
-  // progress motion (ALL)
-  updateAllProgressMotion();
+}
+
+
+// ===== Progress motion (percent only) =====
+let __acnhLastOverallPct = null;
+const __acnhLastDashPctByKind = Object.create(null);
+
+function __acnhPrefersReducedMotion(){
+  try{ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+  catch{ return false; }
+}
+
+function __acnhEaseOutCubic(t){
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function __acnhAnimateInt(el, from, to, durationMs){
+  if (!el) return;
+  const dur = Math.max(0, Number(durationMs) || 0);
+  if (dur === 0 || from === to){
+    el.textContent = String(to);
+    return;
+  }
+  const start = (performance && performance.now) ? performance.now() : Date.now();
+  const raf = window.requestAnimationFrame || function(cb){ return setTimeout(()=>cb(Date.now()), 16); };
+
+  const step = (now)=>{
+    const t = Math.min(1, (now - start) / dur);
+    const v = Math.round(from + (to - from) * __acnhEaseOutCubic(t));
+    el.textContent = String(v);
+    if (t < 1) raf(step);
+  };
+  raf(step);
+}
+
+function applyProgressMotion(view){
+  if (__acnhPrefersReducedMotion()){
+    // reduced motion: just remember current values
+    const overallNum = document.querySelector(".overallPctNum");
+    if (overallNum) __acnhLastOverallPct = parseInt(overallNum.textContent, 10) || 0;
+    const dashNum = document.querySelector(`#view-${view} .dashPctNum`);
+    if (dashNum) __acnhLastDashPctByKind[view] = parseInt(dashNum.textContent, 10) || 0;
+    return;
+  }
+
+  // overall (header)
+  const overallNum = document.querySelector(".overallPctNum");
+  const overallBar = document.querySelector(".overallBar");
+  if (overallNum && overallBar){
+    const to = parseInt(overallNum.textContent, 10) || 0;
+    const from = (typeof __acnhLastOverallPct === "number") ? __acnhLastOverallPct : to;
+
+    overallNum.textContent = String(from);
+    overallBar.style.width = from + "%";
+
+    (window.requestAnimationFrame || setTimeout)(()=>{
+      overallBar.style.width = to + "%";
+      __acnhAnimateInt(overallNum, from, to, 520);
+    }, 0);
+
+    __acnhLastOverallPct = to;
+  }
+
+  // current view dashboard
+  const dashNum = document.querySelector(`#view-${view} .dashPctNum`);
+  const dashBar = document.querySelector(`#view-${view} .dashBar`);
+  if (dashNum && dashBar){
+    const to = parseInt(dashNum.textContent, 10) || 0;
+    const prev = __acnhLastDashPctByKind[view];
+    const from = (typeof prev === "number") ? prev : to;
+
+    dashNum.textContent = String(from);
+    dashBar.style.width = from + "%";
+
+    (window.requestAnimationFrame || setTimeout)(()=>{
+      dashBar.style.width = to + "%";
+      __acnhAnimateInt(dashNum, from, to, 520);
+    }, 0);
+
+    __acnhLastDashPctByKind[view] = to;
+  }
 }
 
 
@@ -749,30 +746,8 @@ function updateChipsDock(kind){
 
 const DETAIL_HINT_KEY = "acnh_detail_hint_seen_v1";
 
-function isListMode(){
-  try{ return !!(window.matchMedia && window.matchMedia("(max-width: 900px)").matches); }catch{ return false; }
-}
-function getPointerVerb(){
-  try{
-    const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-    return coarse ? "タップ" : "クリック";
-  }catch{ return "タップ"; }
-}
-function hasCollapsibleDetailsInView(){
-  const view = state.currentView || "fish";
-  const el = document.querySelector(`#view-${view}`);
-  if (!el) return false;
-  // list mode only
-  const list = el.querySelector(".cList");
-  if (!list) return false;
-  // list exists but no collapsible detail -> no hint
-  return !!el.querySelector(".cDetail[hidden]");
-}
 function shouldShowDetailHint(){
-  try{ if (localStorage.getItem(DETAIL_HINT_KEY)) return false; }catch{}
-  if (!isListMode()) return false;
-  if (!hasCollapsibleDetailsInView()) return false;
-  return true;
+  try{ return !localStorage.getItem(DETAIL_HINT_KEY); }catch{ return false; }
 }
 
 function markDetailHintSeen(){
@@ -784,18 +759,30 @@ function markDetailHintSeen(){
   }
 }
 
+function hasCollapsibleDetailsInCurrentView(){
+  const view = (state && state.currentView) ? state.currentView : "fish";
+  const isMobile = !!(window.matchMedia && window.matchMedia("(max-width: 900px)").matches);
+  if (isMobile){
+    return (view === "fish" || view === "bugs" || view === "sea" || view === "fossil" || view === "art");
+  }
+  // Desktop では美術品のみ詳細の開閉がある
+  return view === "art";
+}
+
 function updateHintDock(){
   const hd = document.getElementById("hintDock");
   if (!hd) return;
-  if (!shouldShowDetailHint()){
+
+  if (!shouldShowDetailHint() || !hasCollapsibleDetailsInCurrentView()){
     hd.hidden = true;
+    hd.innerHTML = "";
     return;
   }
+
   hd.hidden = false;
   hd.innerHTML = `
     <div class="hintBox" role="note" aria-label="操作ヒント">
-      <span class="hintIcon" aria-hidden="true">💡</span>
-      <span class="hintText">サムネ右上のiを${getPointerVerb()}すると詳細が開きます</span>
+      <span class="hintText">タップして詳細を表示</span>
       <button type="button" class="hintClose" aria-label="閉じる">×</button>
     </div>
   `;
@@ -868,6 +855,7 @@ function ensureCompactStyles(){
   border-radius: 14px;
   box-shadow: var(--shadow);
   overflow: hidden;
+  position: relative;
 }
 .cHead{ display:flex; align-items:center; gap:10px; padding: 12px 12px; cursor:pointer; }
 .cChk{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
@@ -903,6 +891,17 @@ function ensureCompactStyles(){
   cursor:pointer;
 }
 .cDetail{ padding: 0 12px 12px 12px; }
+.cDots{
+  position:absolute;
+  right:10px;
+  bottom:8px;
+  font-size:12px;
+  font-weight:950;
+  line-height:1;
+  color: var(--muted);
+  opacity:.65;
+  pointer-events:none;
+}
 .cGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top: 10px; }
 .cItem{ border:1px solid var(--border); background: rgba(255,255,255,.65); border-radius:12px; padding:10px; }
 .cLabel{ font-size:11px; color: var(--muted); font-weight:900; margin-bottom:4px; }
@@ -1158,7 +1157,7 @@ function renderList(kind, items){
 
 html += `
   <div class="cRow">
-    <div class="cHead cCollapsible" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-${kind}-${it.id}">
+    <div class="cHead" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
       <label class="cChk" aria-label="チェック">
         <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
       </label>
@@ -1166,16 +1165,17 @@ html += `
       <div class="cNo">No.${it.no ?? ""}</div>
 
       <div class="cIconBig">
-        ${iconHtml ? `<span class="thumbWrap">${iconHtml}<span class="thumbInfo" aria-hidden="true">i</span></span>` : ``}
+        ${iconHtml}
       </div>
 
       <div class="cNameLine">
         <div class="cNameText">${escapeHtml(it.name)}</div>
-        ${(s.showNowUI && now) ? `<span class="badge now inlineNow">狙える</span>` : ``}
       </div>
+
+      ${(s.showNowUI && now) ? `<span class="badge now inlineNow">狙える</span>` : ``}
     </div>
 
-    <div class="cDetail" id="detail-${kind}-${it.id}" data-detail="${it.id}" hidden>
+    <div class="cDetail" data-detail="${it.id}" hidden>
           <div class="cGrid">
             <div class="cItem">
               <div class="cLabel">売値</div>
@@ -1205,6 +1205,7 @@ html += `
             </div>
           </div>
         </div>
+        <span class="cDots" data-dots="${it.id}" aria-hidden="true">＋</span>
       </div>
     `;
   }
@@ -1259,7 +1260,7 @@ html += `
         <td data-label="No">${it.no ?? ""}</td>
         <td class="td-name" data-label="名前">
           <div class="nameRow">
-            ${iconHtml ? `<span class="thumbWrap thumbWrap--tbl">${iconHtml}<span class="thumbInfo thumbInfo--tbl" aria-hidden="true">i</span></span>` : ``}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+            ${iconHtml}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
             ${(s.showNowUI && now) ? `<span class="badge now">いま狙える</span>` : ``}
           </div>
         </td>
@@ -1281,10 +1282,6 @@ html += `
 
   const viewEl = document.querySelector(`#view-${kind}`);
   viewEl.innerHTML = html;
-
-
-  // progress motion (kind)
-  updateKindProgressMotion(kind, items);
 
   const rerender = ()=>{
     const ae = document.activeElement;
@@ -1471,15 +1468,12 @@ html += `
 
       detail.hidden = !detail.hidden;
 
-      const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
-      if (head) {
-        const expanded = !detail.hidden;
-        head.setAttribute("aria-expanded", expanded ? "true" : "false");
-        head.classList.toggle("open", expanded);
-      }
+      const dots = viewEl.querySelector(`[data-dots="${id}"]`);
+      if (dots) dots.hidden = !detail.hidden;
 
       markDetailHintSeen();
-      updateHintDock();
+      const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
+      if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
 
     // キーボード操作（Enter / Space）でも開閉
@@ -1558,13 +1552,13 @@ function renderFossilList(items){
 
     html += `
       <div class="cRow">
-        <div class="cHead cCollapsible" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-${kind}-${it.id}">
+        <div class="cHead" data-act="toggle" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
           <label class="cChk" aria-label="チェック">
             <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
           </label>
 
           <div class="cIconBig">
-            ${iconHtml ? `<span class="thumbWrap">${iconHtml}<span class="thumbInfo" aria-hidden="true">i</span></span>` : ``}
+            ${iconHtml}
           </div>
 
           <div class="cNameLine">
@@ -1572,7 +1566,7 @@ function renderFossilList(items){
           </div>
         </div>
 
-        <div class="cDetail" id="detail-${kind}-${it.id}" data-detail="${it.id}" hidden>
+        <div class="cDetail" data-detail="${it.id}" hidden>
           <div class="cGrid fossilGrid">
             <div class="cItem">
               <div class="cLabel">売値</div>
@@ -1580,6 +1574,7 @@ function renderFossilList(items){
             </div>
           </div>
         </div>
+        <span class="cDots" data-dots="${it.id}" aria-hidden="true">＋</span>
       </div>
     `;
   }
@@ -1610,7 +1605,7 @@ function renderFossilList(items){
         <td data-label="済"><input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}></td>
         <td class="td-name" data-label="名前">
           <div class="nameRow">
-            ${iconHtml ? `<span class="thumbWrap thumbWrap--tbl">${iconHtml}<span class="thumbInfo thumbInfo--tbl" aria-hidden="true">i</span></span>` : ``}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+            ${iconHtml}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
           </div>
         </td>
         <td data-label="売値">${escapeHtml(priceText)}</td>
@@ -1627,10 +1622,6 @@ function renderFossilList(items){
 
   const viewEl = document.querySelector(`#view-${kind}`);
   viewEl.innerHTML = html;
-
-
-  // progress motion (kind)
-  updateKindProgressMotion(kind, items);
 
   const rerender = ()=>{
     saveState();
@@ -1744,15 +1735,12 @@ function renderFossilList(items){
 
       detail.hidden = !detail.hidden;
 
-      const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
-      if (head) {
-        const expanded = !detail.hidden;
-        head.setAttribute("aria-expanded", expanded ? "true" : "false");
-        head.classList.toggle("open", expanded);
-      }
+      const dots = viewEl.querySelector(`[data-dots="${id}"]`);
+      if (dots) dots.hidden = !detail.hidden;
 
       markDetailHintSeen();
-      updateHintDock();
+      const head = viewEl.querySelector(`.cHead[data-id="${id}"]`);
+      if (head) head.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
     });
 
     // キーボード操作（Enter / Space）でも開閉
@@ -1842,13 +1830,13 @@ function renderArtList(items){
 
     html += `
       <div class="cRow">
-        <div class="cHead cCollapsible" data-act="toggleArt" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-${kind}-${it.id}">
+        <div class="cHead" data-act="toggleArt" data-id="${it.id}" role="button" tabindex="0" aria-expanded="false">
           <label class="cChk" aria-label="チェック">
             <input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}>
           </label>
 
           <div class="cIconBig">
-            ${iconHtml ? `<span class="thumbWrap">${iconHtml}<span class="thumbInfo" aria-hidden="true">i</span></span>` : ``}
+            ${iconHtml}
           </div>
 
           <div class="cNameLine">
@@ -1856,9 +1844,10 @@ function renderArtList(items){
           </div>
         </div>
 
-        <div class="cDetail" id="detail-${kind}-${it.id}" data-detail="${it.id}" hidden>
+        <div class="cDetail" data-detail="${it.id}" hidden>
           ${detailHtml}
         </div>
+        <span class="cDots" data-dots="${it.id}" aria-hidden="true">＋</span>
       </div>
     `;
   }
@@ -1888,7 +1877,7 @@ function renderArtList(items){
         <td data-label="済"><input type="checkbox" data-act="caught" data-id="${it.id}" ${mk.caught?"checked":""}></td>
         <td class="td-name" data-label="名前">
           <div class="nameRow">
-            ${iconHtml ? `<span class="thumbWrap thumbWrap--tbl">${iconHtml}<span class="thumbInfo thumbInfo--tbl" aria-hidden="true">i</span></span>` : ``}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+            ${iconHtml}<span class="nameText" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
           </div>
         </td>
       </tr>
@@ -1909,10 +1898,6 @@ function renderArtList(items){
 
   const viewEl = document.querySelector(`#view-${kind}`);
   viewEl.innerHTML = html;
-
-
-  // progress motion (kind)
-  updateKindProgressMotion(kind, items);
 
   const rerender = ()=>{
     saveState();
@@ -2034,11 +2019,10 @@ function renderArtList(items){
         const detail = viewEl.querySelector(`[data-detail="${id}"]`);
         if (detail){
           detail.hidden = !detail.hidden;
-          const expanded = !detail.hidden;
-          trg.setAttribute("aria-expanded", expanded ? "true" : "false");
-          trg.classList.toggle("open", expanded);
+          const dots = viewEl.querySelector(`[data-dots="${id}"]`);
+          if (dots) dots.hidden = !detail.hidden;
           markDetailHintSeen();
-          updateHintDock();
+          trg.setAttribute("aria-expanded", detail.hidden ? "false" : "true");
         }
         return;
       }
@@ -2108,6 +2092,7 @@ async function render(){
     updateChipsDock(view);
     updateHeaderStats();
     updateHintDock();
+    applyProgressMotion(view);
     // チップ表示/コンパクト切替で header 高さが変わるので同期
     syncHeaderOffset();
     status("");
