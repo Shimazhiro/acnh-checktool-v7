@@ -801,25 +801,53 @@ select:disabled,input:disabled{opacity:.55}
   pointer-events:none;
 }
 
-/* ===== Check Ripple FX (lightweight) ===== */
-.rippleFxLayer{
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
+/* ===== Check Petal FX (lightweight, transform/opacity only) ===== */
+.petalFxLayer{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
   z-index: 9999;
   overflow: visible;
 }
 
-.rippleFx{
-  position: absolute;
-  border: 2px solid rgba(121,205,192,.35);
-  border-radius: 999px;
-  box-sizing: border-box;
-  transform: translate(-50%,-50%) scale(1);
-  opacity: .35;
+.petalFx{
+  position:absolute;
+  width: 8px;
+  height: 4px;
+  border-radius: 999px 999px 999px 0;
+  opacity: .92;
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(.86);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,.72), transparent 60%),
+    linear-gradient(135deg, var(--c1, rgb(121,205,192)), var(--c2, rgb(70,170,160)));
   will-change: transform, opacity;
+  animation: petalFxBurst var(--dur, 860ms) cubic-bezier(.2,.8,.2,1) forwards;
+}
+
+.petalFx.p2{ width: 7px; height: 4px; border-radius: 999px 999px 999px 1px; }
+.petalFx.p3{ width: 9px; height: 5px; border-radius: 999px 999px 999px 1px; }
+
+@keyframes petalFxBurst{
+  0%{
+    opacity: .92;
+    transform: translate(calc(-50% + var(--dx0, 0px)), calc(-50% + var(--dy0, 0px)))
+              rotate(var(--rot, 0deg))
+              scale(.72);
+  }
+  70%{
+    opacity: .90;
+    transform: translate(calc(-50% + var(--dx1, 0px)), calc(-50% + var(--dy1, 0px)))
+              rotate(calc(var(--rot, 0deg) + var(--spin1, 240deg)))
+              scale(.92);
+  }
+  100%{
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy2, 0px)))
+              rotate(calc(var(--rot, 0deg) + var(--spin, 360deg)))
+              scale(.90);
+  }
 }
 
 @media (prefers-reduced-motion: reduce){
-  .rippleFxLayer{ display:none !important; }
+  .petalFx{ animation: none !important; display:none !important; }
 }

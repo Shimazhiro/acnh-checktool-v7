@@ -15,97 +15,109 @@ function rememberedLocLabel(s){
 }
 
 
-// ===== Check Ripple FX (lightweight, DOM ripple) =====
+// ===== Check Petal FX (lightweight, DOM particles) =====
 // - only on "caught" checkbox ON
 // - short-lived nodes on a single fixed overlay
 // - respects prefers-reduced-motion
-const ACNH_RIPPLE_FX = (() => {
+const ACNH_PETAL_FX = (() => {
+  const base = { r: 121, g: 205, b: 192 }; // rgb(121,205,192)
   const reduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   let layer = null;
   let lastAt = 0;
 
   function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
-
-  function parseAccent(){
-    try{
-      const cs = getComputedStyle(document.documentElement);
-      const v = String(cs.getPropertyValue("--accent") || "").trim();
-      const m = v.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-      if (m) return { r: +m[1], g: +m[2], b: +m[3] };
-    }catch(e){}
-    return { r: 121, g: 205, b: 192 }; // fallback
+  function mix(a, b, t){
+    t = clamp(t, 0, 1);
+    return {
+      r: Math.round(a.r + (b.r - a.r) * t),
+      g: Math.round(a.g + (b.g - a.g) * t),
+      b: Math.round(a.b + (b.b - a.b) * t),
+    };
   }
+  function rgb(c){ return `rgb(${c.r},${c.g},${c.b})`; }
 
   function ensureLayer(){
-    if (layer && document.body.contains(layer)) return layer;
-    layer = document.createElement("div");
-    layer.className = "rippleFxLayer";
-    document.body.appendChild(layer);
+    if (layer) return layer;
+    const d = document.createElement("div");
+    d.className = "petalFxLayer";
+    document.body.appendChild(d);
+    layer = d;
     return layer;
   }
 
-  function spawn(x, y, start, end, dur, bw, a0, delay){
-    const acc = parseAccent();
-    const el = document.createElement("div");
-    el.className = "rippleFx";
-    el.style.left = x + "px";
-    el.style.top  = y + "px";
-    el.style.width  = start + "px";
-    el.style.height = start + "px";
-    el.style.borderWidth = bw + "px";
-    el.style.borderColor = `rgba(${acc.r}, ${acc.g}, ${acc.b}, ${a0})`;
-    ensureLayer().appendChild(el);
+  function burstAt(x, y, opts = {}){
+    if (reduced) return;
 
-    // Use WAAPI for consistent timing across browsers.
-    const scale = end / start;
-    const kf = [
-      { transform: "translate(-50%,-50%) scale(1)", opacity: a0 },
-      { transform: `translate(-50%,-50%) scale(${scale})`, opacity: 0 }
-    ];
-    const anim = el.animate(kf, {
-      duration: dur,
-      delay: delay || 0,
-      easing: "cubic-bezier(.2,.8,.2,1)",
-      fill: "forwards"
-    });
-    anim.onfinish = () => { try{ el.remove(); }catch(e){} };
-  }
-
-  function rippleForCheckbox(cb){
-    if (reduced) return false;
-    if (!cb) return;
-    const now = performance.now ? performance.now() : Date.now();
-    // prevent double-firing on some browsers
-    if (now - lastAt < 40) return false;
+    const now = (window.performance && performance.now) ? performance.now() : Date.now();
+    const cooldown = Number(opts.cooldown ?? 140);
+    if (now - lastAt < cooldown) return;
     lastAt = now;
 
-    const r = cb.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top  + r.height / 2;
+    const count = Math.max(6, Number(opts.count ?? 12));
+    const dur = Math.max(300, Number(opts.dur ?? 860));
+    const l = ensureLayer();
 
-    const s = Math.max(r.width, r.height) || 16;
-    const start = clamp(s * 0.9, 10, 14);
-    const end   = clamp(s * 5.0, 54, 96);
+    for (let i = 0; i < count; i++){
+      const s = document.createElement("span");
+      s.className = "petalFx p" + (1 + (i % 3));
+      s.style.left = `${x}px`;
+      s.style.top  = `${y}px`;
 
-    // Primary ring
-    spawn(cx, cy, start, end, 680, 2, 0.42, 0);
-    // Secondary softer ring for a smoother "flow"
-    spawn(cx, cy, start * 0.85, end * 0.95, 740, 1, 0.26, 60);
+      // Mostly upward spread (upper half-plane) + upward bias
+      const angle = (-Math.PI) + (Math.random() * Math.PI);
+      const radius = 18 + Math.random() * 34;
 
-    return true;
+      const dx = Math.cos(angle) * radius + (Math.random() * 10 - 5);
+      const dy = Math.sin(angle) * radius - (24 + Math.random() * 36);
+
+      const dx0 = dx * 0.14;
+      const dy0 = dy * 0.14;
+
+      const dx1 = dx * 0.78;
+      const dy1 = dy * 0.78;
+
+      const dy2 = dy + (10 + Math.random() * 8);
+
+      const rot  = (Math.random() * 140 - 70);
+      const spin = (180 + Math.random() * 420) * (Math.random() < 0.5 ? -1 : 1);
+      const spin1 = spin * 0.70;
+
+      // Teal palette around base (subtle variation)
+      const c1 = mix(base, {r:255,g:255,b:255}, 0.10 + Math.random() * 0.18);
+      const c2 = mix(base, {r:0,g:0,b:0},     0.12 + Math.random() * 0.18);
+
+      s.style.setProperty("--dx0",  dx0.toFixed(1) + "px");
+      s.style.setProperty("--dy0",  dy0.toFixed(1) + "px");
+      s.style.setProperty("--dx1",  dx1.toFixed(1) + "px");
+      s.style.setProperty("--dy1",  dy1.toFixed(1) + "px");
+      s.style.setProperty("--dx",   dx.toFixed(1)  + "px");
+      s.style.setProperty("--dy2",  dy2.toFixed(1) + "px");
+
+      s.style.setProperty("--rot",  rot.toFixed(1)  + "deg");
+      s.style.setProperty("--spin", spin.toFixed(1) + "deg");
+      s.style.setProperty("--spin1", spin1.toFixed(1) + "deg");
+      s.style.setProperty("--dur",  dur + "ms");
+      s.style.setProperty("--c1",   rgb(c1));
+      s.style.setProperty("--c2",   rgb(c2));
+
+      s.addEventListener("animationend", ()=> s.remove(), { once:true });
+      l.appendChild(s);
+    }
   }
 
-  return { rippleForCheckbox, reduced };
+  function burstForCheckbox(cb){
+    if (!cb || !cb.getBoundingClientRect) return;
+    const r = cb.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+
+    const isMobile = !!(window.matchMedia && window.matchMedia("(max-width: 900px)").matches);
+    burstAt(x, y, { count: isMobile ? 10 : 14, dur: 860, cooldown: 120 });
+  }
+
+  return { burstForCheckbox };
 })();
 
-// Defer heavy rerender work by ~1 frame so FX can actually paint on slower devices.
-function deferRerender(fn){
-  try{
-    requestAnimationFrame(()=>requestAnimationFrame(fn));
-  }catch(e){
-    setTimeout(fn, 0);
-  }
-}
 
 // months: [1..12] 数値配列から連続区間を作る（例: [1,2,3,7,8] -> [{s:1,e:3},{s:7,e:8}]）
 function monthsToRangeObjs(months){
@@ -1278,13 +1290,23 @@ html += `
 
             <div class="cItem">
               <div class="cLabel">場所</div>
-              <div class="cVal">${kind !== "sea" ? (escapeHtml(placeText) || "—") : "—"}</div>
+              <div class="cVal">${escapeHtml(placeText) || "—"}</div>
             </div>
 
             ${kind==="fish" ? `
             <div class="cItem">
               <div class="cLabel">魚影</div>
               <div class="cVal">${escapeHtml(shadowText) || "—"}</div>
+            </div>
+            ` : ``}
+          ${kind==="sea" ? `
+            <div class="cItem">
+              <div class="cLabel">影</div>
+              <div class="cVal">${escapeHtml(it.condition) || "—"}</div>
+            </div>
+            <div class="cItem">
+              <div class="cLabel">スピード</div>
+              <div class="cVal">${escapeHtml(it.speed) || "—"}</div>
             </div>
             ` : ``}
 
@@ -1318,6 +1340,7 @@ html += `
               <th style="width:86px;">売値</th>
               <th style="width:160px;">場所</th>
               ${kind==="fish" ? `<th style="width:90px;">魚影</th>` : ``}
+              ${kind==="sea" ? `<th style="width:60px;">影</th><th style="width:90px;">スピード</th>` : ``}
               <th style="width:160px;">出現月</th>
               <th style="width:200px;">出現時間</th>
             </tr>
@@ -1361,6 +1384,7 @@ html += `
         <td data-label="売値">${escapeHtml(priceText)}</td>
         <td data-label="場所">${escapeHtml(placeText)}</td>
         ${kind==="fish" ? `<td data-label="魚影">${shadowText ? `<span class="badge">${escapeHtml(shadowText)}</span>` : ""}</td>` : ``}
+        ${kind==="sea" ? `<td data-label="影">${it.condition ? `<span class="badge">${escapeHtml(it.condition)}</span>` : ""}</td><td data-label="スピード">${it.speed ? `<span class="badge">${escapeHtml(it.speed)}</span>` : ""}</td>` : ``}
         <td data-label="出現月">${monthsStr ? `<span class="badge">${escapeHtml(monthsStr)}</span>` : ""}</td>
         <td data-label="出現時間">${timeLabel ? `<span class="badge">${escapeHtml(timeLabel)}</span>` : ""}</td>
       </tr>
@@ -1541,10 +1565,8 @@ html += `
     el.addEventListener("change",(e)=>{
       const id = e.target.getAttribute("data-id");
       state.marks[id] = { caught: e.target.checked };
-      let didFx = false;
-      if (e.target.checked) didFx = ACNH_RIPPLE_FX.rippleForCheckbox(e.target);
-      if (e.target.checked && didFx) deferRerender(rerender);
-      else rerender();
+      if (e.target.checked) ACNH_PETAL_FX.burstForCheckbox(e.target);
+      rerender();
     });
   });
 
@@ -1810,10 +1832,8 @@ function renderFossilList(items){
     el.addEventListener("change",(e)=>{
       const id = e.target.getAttribute("data-id");
       state.marks[id] = { caught: e.target.checked };
-      let didFx = false;
-      if (e.target.checked) didFx = ACNH_RIPPLE_FX.rippleForCheckbox(e.target);
-      if (e.target.checked && didFx) deferRerender(rerender);
-      else rerender();
+      if (e.target.checked) ACNH_PETAL_FX.burstForCheckbox(e.target);
+      rerender();
     });
   });
 
@@ -2101,10 +2121,8 @@ function renderArtList(items){
     el.addEventListener("change", (e)=>{
       const id = e.target.getAttribute("data-id");
       state.marks[id] = { caught: e.target.checked };
-      let didFx = false;
-      if (e.target.checked) didFx = ACNH_RIPPLE_FX.rippleForCheckbox(e.target);
-      if (e.target.checked && didFx) deferRerender(rerender);
-      else rerender();
+      if (e.target.checked) ACNH_PETAL_FX.burstForCheckbox(e.target);
+      rerender();
     });
   });
 
