@@ -8,9 +8,103 @@ function dispTimes(s){
 }
 function rememberedLocLabel(s){
   const t = String(s||"").trim();
+  if (!t) return "";
   if (t === "(指定なし)") return "指定なし";
   if (t === "葉っぱに擬態している") return "葉っぱに擬態";
   return t;
+}
+
+
+// ===== Check Ripple FX (lightweight, DOM ripple) =====
+// - only on "caught" checkbox ON
+// - short-lived nodes on a single fixed overlay
+// - respects prefers-reduced-motion
+const ACNH_RIPPLE_FX = (() => {
+  const reduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  let layer = null;
+  let lastAt = 0;
+
+  function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+  function parseAccent(){
+    try{
+      const cs = getComputedStyle(document.documentElement);
+      const v = String(cs.getPropertyValue("--accent") || "").trim();
+      const m = v.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+      if (m) return { r: +m[1], g: +m[2], b: +m[3] };
+    }catch(e){}
+    return { r: 121, g: 205, b: 192 }; // fallback
+  }
+
+  function ensureLayer(){
+    if (layer && document.body.contains(layer)) return layer;
+    layer = document.createElement("div");
+    layer.className = "rippleFxLayer";
+    document.body.appendChild(layer);
+    return layer;
+  }
+
+  function spawn(x, y, start, end, dur, bw, a0, delay){
+    const acc = parseAccent();
+    const el = document.createElement("div");
+    el.className = "rippleFx";
+    el.style.left = x + "px";
+    el.style.top  = y + "px";
+    el.style.width  = start + "px";
+    el.style.height = start + "px";
+    el.style.borderWidth = bw + "px";
+    el.style.borderColor = `rgba(${acc.r}, ${acc.g}, ${acc.b}, ${a0})`;
+    ensureLayer().appendChild(el);
+
+    // Use WAAPI for consistent timing across browsers.
+    const scale = end / start;
+    const kf = [
+      { transform: "translate(-50%,-50%) scale(1)", opacity: a0 },
+      { transform: `translate(-50%,-50%) scale(${scale})`, opacity: 0 }
+    ];
+    const anim = el.animate(kf, {
+      duration: dur,
+      delay: delay || 0,
+      easing: "cubic-bezier(.2,.8,.2,1)",
+      fill: "forwards"
+    });
+    anim.onfinish = () => { try{ el.remove(); }catch(e){} };
+  }
+
+  function rippleForCheckbox(cb){
+    if (reduced) return false;
+    if (!cb) return;
+    const now = performance.now ? performance.now() : Date.now();
+    // prevent double-firing on some browsers
+    if (now - lastAt < 40) return false;
+    lastAt = now;
+
+    const r = cb.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top  + r.height / 2;
+
+    const s = Math.max(r.width, r.height) || 16;
+    const start = clamp(s * 0.9, 10, 14);
+    const end   = clamp(s * 5.0, 54, 96);
+
+    // Primary ring
+    spawn(cx, cy, start, end, 680, 2, 0.42, 0);
+    // Secondary softer ring for a smoother "flow"
+    spawn(cx, cy, start * 0.85, end * 0.95, 740, 1, 0.26, 60);
+
+    return true;
+  }
+
+  return { rippleForCheckbox, reduced };
+})();
+
+// Defer heavy rerender work by ~1 frame so FX can actually paint on slower devices.
+function deferRerender(fn){
+  try{
+    requestAnimationFrame(()=>requestAnimationFrame(fn));
+  }catch(e){
+    setTimeout(fn, 0);
+  }
 }
 
 // months: [1..12] 数値配列から連続区間を作る（例: [1,2,3,7,8] -> [{s:1,e:3},{s:7,e:8}]）
@@ -1447,7 +1541,10 @@ html += `
     el.addEventListener("change",(e)=>{
       const id = e.target.getAttribute("data-id");
       state.marks[id] = { caught: e.target.checked };
-      rerender();
+      let didFx = false;
+      if (e.target.checked) didFx = ACNH_RIPPLE_FX.rippleForCheckbox(e.target);
+      if (e.target.checked && didFx) deferRerender(rerender);
+      else rerender();
     });
   });
 
@@ -1713,7 +1810,10 @@ function renderFossilList(items){
     el.addEventListener("change",(e)=>{
       const id = e.target.getAttribute("data-id");
       state.marks[id] = { caught: e.target.checked };
-      rerender();
+      let didFx = false;
+      if (e.target.checked) didFx = ACNH_RIPPLE_FX.rippleForCheckbox(e.target);
+      if (e.target.checked && didFx) deferRerender(rerender);
+      else rerender();
     });
   });
 
@@ -2001,7 +2101,10 @@ function renderArtList(items){
     el.addEventListener("change", (e)=>{
       const id = e.target.getAttribute("data-id");
       state.marks[id] = { caught: e.target.checked };
-      rerender();
+      let didFx = false;
+      if (e.target.checked) didFx = ACNH_RIPPLE_FX.rippleForCheckbox(e.target);
+      if (e.target.checked && didFx) deferRerender(rerender);
+      else rerender();
     });
   });
 
