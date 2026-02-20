@@ -20,7 +20,7 @@ function rememberedLocLabel(s){
 // - short-lived nodes on a single fixed overlay
 // - respects prefers-reduced-motion
 const ACNH_PETAL_FX = (() => {
-  const base = { r: 121, g: 205, b: 192 }; // rgb(121,205,192)
+  const base = { r: 255, g: 105, b: 180 }; // rgb(121,205,192)
   const reduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   let layer = null;
   let lastAt = 0;
@@ -820,9 +820,8 @@ function getFilterChips(kind){
   if (f.caught === "caught") chips.push({ key:"caught", text:"チェック済" });
   if (f.caught === "uncaught") chips.push({ key:"uncaught", text:"未チェック" });
 
-  if ((kind === "fish" || kind === "bugs" || kind === "sea") && s.showNowUI){
+  if (kind === "fish" || kind === "bugs" || kind === "sea"){
     if (s.showNowOnly) chips.push({ key:"nowOnly", text:"いま狙える(Only)" });
-    if (s.sortNowFirst) chips.push({ key:"nowSort", text:"いま狙える(昇順)" });
   }
 
   return chips;
@@ -926,11 +925,7 @@ function clearFilterByChip(kind, chip){
       break;
     case "nowOnly":
       s.showNowOnly = false;
-      break;
-    case "nowSort":
-      s.sortNowFirst = false;
-      break;
-  }
+      break;}
 
   state.filters[kind] = f;
   state.settings = s;
@@ -1045,23 +1040,9 @@ function renderList(kind, items){
 
   let filtered = applyFilters(kind, items);
 
-  if (!s.showNowUI){
-    s.showNowOnly = false;
-    s.sortNowFirst = false;
-  }
-
   if (s.showNowOnly) filtered = filtered.filter(it => isCatchable(it));
 
-  if (s.sortNowFirst) {
-    filtered.sort((a,b)=>{
-      const an = isCatchable(a) ? 0 : 1;
-      const bn = isCatchable(b) ? 0 : 1;
-      if (an !== bn) return an - bn;
-      return (a.no||0) - (b.no||0);
-    });
-  } else {
-    filtered.sort((a,b)=> (a.no||0) - (b.no||0));
-  }
+  filtered.sort((a,b)=> (a.no||0) - (b.no||0));
 
   const dt = getNowDateTime();
   const m0 = dt.getMonth()+1;
@@ -1093,7 +1074,7 @@ function renderList(kind, items){
   // 半球
   // Nowモード 月（手動） 時間（手動） すべての時間（手動時のみ）
   // 場所 魚影（魚のみ） 名前（部分一致）
-  // チェック済 未チェック 1年中を除外 いま狙える いま狙える(Only) いま狙える(昇順)（後2つはON時のみ）
+  // チェック済 未チェック 1年中を除外 いま狙える(Only)
   // すべてチェック すべて解除（「一括」見出し無し）
   // ==========================
 
@@ -1209,22 +1190,14 @@ function renderList(kind, items){
               <span class="label">1年中を除外</span>
             </label>
 
-            <label class="row chkShowNow">
-              <input type="checkbox" id="${kind}-set-showNowUI" ${s.showNowUI?"checked":""}/>
-              <span class="label">いま狙える</span>
-            </label>
-
-            ${s.showNowUI ? `
+            <!-- いま狙える UI（常時ON・Onlyのみ表示） -->
+            ${(kind==="fish"||kind==="bugs"||kind==="sea") ? `
               <label class="row chkNowOnly">
-              <input type="checkbox" id="${kind}-set-showNowOnly" ${s.showNowOnly?"checked":""}/>
+                <input type="checkbox" id="${kind}-set-showNowOnly" ${s.showNowOnly?"checked":""}/>
                 <span class="label">いま狙える(Only)</span>
               </label>
-              <label class="row chkNowSort">
-              <input type="checkbox" id="${kind}-set-sortNowFirst" ${s.sortNowFirst?"checked":""}/>
-                <span class="label">いま狙える(昇順)</span>
-              </label>
             ` : ``}
-          </div>
+</div>
         </div>
       </div>
     </div>
@@ -1437,18 +1410,7 @@ html += `
   (document.querySelector(`#${kind}-set-anytime`) || {addEventListener:()=>{}}).addEventListener("change",(e)=>{ state.settings.manualAnytime = e.target.checked; rerender(); });
 
   // いま狙える表示（ON/OFF）
-  (document.querySelector(`#${kind}-set-showNowUI`) || {addEventListener:()=>{}}).addEventListener("change",(e)=>{
-    state.settings.showNowUI = e.target.checked;
-    if (!e.target.checked){
-      state.settings.showNowOnly = false;
-      state.settings.sortNowFirst = false;
-    }
-    rerender();
-  });
-
   (document.querySelector(`#${kind}-set-showNowOnly`) || {addEventListener:()=>{}}).addEventListener("change",(e)=>{ state.settings.showNowOnly = e.target.checked; rerender(); });
-  (document.querySelector(`#${kind}-set-sortNowFirst`) || {addEventListener:()=>{}}).addEventListener("change",(e)=>{ state.settings.sortNowFirst = e.target.checked; rerender(); });
-
   // ★全件チェック／解除（表示中のfilteredに対して実行）
   (document.querySelector(`#${kind}-checkAllBtn`) || {addEventListener:()=>{}}).addEventListener("click", ()=>{
     for (const it of filtered) state.marks[it.id] = { caught: true };
@@ -2184,6 +2146,9 @@ function setView(view){
 }
 
 let state = loadState();
+// 「いま狙える」表示は常時ON、昇順ソートは廃止
+state.settings.showNowUI = true;
+state.settings.sortNowFirst = false;
 let cache = { fish:null, bugs:null, sea:null, fossil:null, art:null };
 
 async function ensureLoaded(){
